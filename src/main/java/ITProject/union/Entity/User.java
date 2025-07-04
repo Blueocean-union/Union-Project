@@ -1,0 +1,57 @@
+package ITProject.union.Entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 50)
+    private String email;
+
+    @Column(nullable = false, length = 100)
+    private String password; // 암호화 저장 (BCrypt)
+
+    @Column(nullable = false, length = 30)
+    private String name;
+
+    @Column(nullable = false, length = 10)
+    private String grade; // BASIC, PRO
+
+    private String major;
+
+    private String university;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime lastLoginAt;
+
+//    // 관계 매핑 예시 (일정, 학습기록, 퀴즈 등)
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+//    private List<Schedule> schedules;
+//
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+//    private List<Quiz> quizzes;
+//
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+//    private List<StudyRecord> studyRecords;
+//
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+//    private List<Question> questions;
+//
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+//    private List<Answer> answers;
+}
+
