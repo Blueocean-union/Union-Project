@@ -35,6 +35,7 @@ public class Schedule {
 
     private String description;
 
+    @Builder.Default
     private Boolean isCompleted = false;
 
     private LocalDateTime createdAt;
