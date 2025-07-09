@@ -1,5 +1,6 @@
 package ITProject.union.Security;
 
+import ITProject.union.Entity.Grade;
 import ITProject.union.Entity.User;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
@@ -58,7 +59,7 @@ public class CustomUserDetails implements UserDetails {
         return user.getId();
     }
 
-    public String getGrade() {
+    public Grade getGrade() {
         return user.getGrade();
     }
 
