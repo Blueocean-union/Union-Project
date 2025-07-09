@@ -5,6 +5,7 @@ import ITProject.union.Dto.SignupRequest;
 import ITProject.union.Dto.TokenReissueRequest;
 import ITProject.union.Dto.TokenResponse;
 import ITProject.union.Entity.User;
+import ITProject.union.Security.CustomUserDetails;
 import ITProject.union.Service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -52,8 +53,9 @@ public class AuthController {
      * 🚪 로그아웃: Refresh Token 삭제
      */
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal User user) {
-        authService.logout(user);
+    public ResponseEntity<String> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        authService.logout(userDetails.getUser());
         return ResponseEntity.ok("로그아웃 완료");
     }
+
 }
