@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -38,6 +37,17 @@ public class User {
 
     private LocalDateTime lastLoginAt;
 
+
+    // OAuth2.0 연동을 위한 추가 필드
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private OAuthProvider provider; // GOOGLE
+
+    @Column(nullable = false, unique = true, length = 100)
+    private String providerId; // Google 고유 식별자 (sub 값)
+
+    @Column(length = 512)
+    private String refreshToken;
 //    // 관계 매핑 예시 (일정, 학습기록, 퀴즈 등)
 //    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
 //    private List<Schedule> schedules;
