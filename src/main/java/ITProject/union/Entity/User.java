@@ -26,8 +26,9 @@ public class User {
     @Column(nullable = false, length = 30)
     private String name;
 
-    @Column(nullable = false, length = 10)
-    private String grade; // BASIC, PRO
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private Grade grade = Grade.BASIC; // ← ⭐ 기본값 BASIC
 
     private String major;
 
@@ -39,11 +40,10 @@ public class User {
 
 
     // OAuth2.0 연동을 위한 추가 필드
+    @Builder.Default
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private OAuthProvider provider; // GOOGLE
+    private OAuthProvider provider = OAuthProvider.GOOGLE; // GOOGLE
 
-    @Column(nullable = false, unique = true, length = 100)
     private String providerId; // Google 고유 식별자 (sub 값)
 
     @Column(length = 512)

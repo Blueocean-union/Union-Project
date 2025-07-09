@@ -2,6 +2,7 @@ package ITProject.union.Controller;
 
 import ITProject.union.Dto.UserResponseDto;
 import ITProject.union.Entity.User;
+import ITProject.union.Security.CustomUserDetails;
 import ITProject.union.Service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ public class UserController {
      * 🙋 내 정보 조회
      */
     @GetMapping("/me")
-    public ResponseEntity<UserResponseDto> getMyInfo(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(userService.getMyInfo(user));
+    public ResponseEntity<UserResponseDto> getMyInfo(@AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(userService.getMyInfo(user.getUser()));
     }
 }

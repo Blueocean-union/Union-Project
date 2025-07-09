@@ -31,6 +31,7 @@ public class Subject {
     private String color;
 
     // 즐겨찾기 여부 (기본값 false)
+    @Builder.Default
     private Boolean isFavorite = false;
 
     private LocalDateTime createdAt;

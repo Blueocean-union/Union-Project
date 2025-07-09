@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -22,11 +23,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
 
+    // 🔓 인증 없이 통과시킬 경로 리스트
+    private static final List<String> skipUrls = List.of(
+            "/auth/signup", "/auth/signin", "/auth/reissue",
+            "/oauth2", "/oauth2/", "/login", "/login/"
+    );
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+
+        // ✅ 인증 제외 경로는 필터 패스
+        if (shouldSkip(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String token = resolveToken(request);
 
@@ -34,15 +49,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
 
             User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("사용자 없음"));
+                    .orElse(null); // ❗ 로그인 안 된 사용자는 그냥 무시
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(user, null, Collections.emptyList());
+            if (user != null) {
+                CustomUserDetails userDetails = new CustomUserDetails(user);
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean shouldSkip(String path) {
+        return skipUrls.stream().anyMatch(path::startsWith);
     }
 
     private String resolveToken(HttpServletRequest request) {

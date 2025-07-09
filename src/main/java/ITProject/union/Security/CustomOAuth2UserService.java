@@ -1,5 +1,6 @@
 package ITProject.union.Security;
 
+import ITProject.union.Entity.Grade;
 import ITProject.union.Entity.OAuthProvider;
 import ITProject.union.Entity.User;
 import ITProject.union.Repository.UserRepository;
@@ -37,7 +38,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                             .name(name)
                             .provider(OAuthProvider.GOOGLE)
                             .providerId(sub)
-                            .grade("BASIC")
+                            .grade(Grade.BASIC)
                             .createdAt(LocalDateTime.now())
                             .build();
                     return userRepository.save(newUser);

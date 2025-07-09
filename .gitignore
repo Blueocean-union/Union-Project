@@ -43,7 +43,7 @@ out/
 
 # === Secrets / Env Config ===
 .env
-application-oauth.yml
+application.yml
 application.properties
 
 # === Python / AI ===
