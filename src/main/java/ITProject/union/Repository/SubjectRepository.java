@@ -10,8 +10,7 @@ import java.util.Optional;
 public interface SubjectRepository extends JpaRepository<Subject, Long> {
 
     // 사용자별 전체 과목 목록 조회
-    List<Subject> findByUser(User user);
-
+    List<Subject> findByUserId(Long userId);
     // 사용자별 과목 이름 중복 확인 (등록 시 중복 방지용)
     boolean existsByUserAndName(User user, String name);
 

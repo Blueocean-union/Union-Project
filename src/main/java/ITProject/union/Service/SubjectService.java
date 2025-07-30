@@ -35,9 +35,7 @@ public class SubjectService {
 
     @Transactional(readOnly = true)
     public List<SubjectResponseDto> getSubjects(Long userId) {
-        User user = getUser(userId);
-
-        return subjectRepository.findByUser(user).stream()
+        return subjectRepository.findByUserId(userId).stream()
                 .map(SubjectMapper::toDto)
                 .toList();
     }

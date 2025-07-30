@@ -29,6 +29,7 @@ public class SubjectController {
     // 전체 과목 조회
     @GetMapping
     public ResponseEntity<List<SubjectResponseDto>> getSubjects(@AuthenticationPrincipal CustomUserDetails user) {
+        System.out.println("👉 로그인한 사용자 ID: " + user.getId());
         return ResponseEntity.ok(subjectService.getSubjects(user.getId()));
     }
 
