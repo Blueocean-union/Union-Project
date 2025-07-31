@@ -36,7 +36,13 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login/**", "/oauth2/**", "/auth/reissue", "/auth/signup", "/auth/signin").permitAll()
+                        .requestMatchers("/", "/login/**", "/oauth2/**", "/auth/reissue", "/auth/signup", "/auth/signin",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs",
+                                "/swagger-resources/**",
+                                "/webjars/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 👇 인증되지 않은 사용자의 접근 처리 방식: 401 반환
