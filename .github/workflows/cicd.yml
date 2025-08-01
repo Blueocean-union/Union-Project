@@ -21,15 +21,6 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
-      - name: Delete old jar on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            sudo rm -f ~/union-0.0.1-SNAPSHOT.jar
-
       - name: cicd to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -37,7 +28,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "build/libs/union-0.0.1-SNAPSHOT.jar"
-          target: "~/"
+          target: "~"
+          overwrite: true
+
 
       - name: Run App on EC2
         uses: appleboy/ssh-action@v1.0.3
