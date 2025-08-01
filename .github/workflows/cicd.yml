@@ -30,6 +30,8 @@ jobs:
           source: "build/libs/union-0.0.1-SNAPSHOT.jar"
           target: "~"
           overwrite: true
+          timeout: 60
+          strip_components: 0
 
 
       - name: Run App on EC2
