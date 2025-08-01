@@ -30,7 +30,7 @@ jobs:
           source: "build/libs/union-0.0.1-SNAPSHOT.jar"
           target: "~"
           overwrite: true
-          timeout: 60
+          timeout: "60s"
           strip_components: 0
 
 
