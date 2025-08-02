@@ -1,10 +1,8 @@
-name: cicd to EC2
+name: deploy to EC2
 
 on:
   push:
-    branches: [ "develop" ]
-  pull_request:
-    branches: [ "develop" ]
+    branches: [ develop ]
 
 jobs:
   deploy:
@@ -23,26 +21,33 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
-      - name: cicd to EC2
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build/libs/union-0.0.1-SNAPSHOT.jar"
-          target: "~"
-          overwrite: true
-          timeout: "60s"
-          strip_components: 0
-
-
-      - name: Run App on EC2
+      - name: Copy jar to EC2 using scp (via ssh-action)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "📂 Removing old jar (if exists)..."
+            rm -f ~/union-0.0.1-SNAPSHOT.jar
+
+            echo "📡 Starting file transfer..."
+            scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no build/libs/union-0.0.1-SNAPSHOT.jar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/
+
+      - name: Restart EC2 service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🛑 Stopping service..."
             sudo systemctl stop union.service || true
+
+            echo "🔄 Reloading systemd..."
             sudo systemctl daemon-reload
+
+            echo "🚀 Starting service..."
             sudo systemctl start union.service
+
+            echo "✅ Deployment complete."
