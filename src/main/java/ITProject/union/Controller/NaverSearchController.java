@@ -17,6 +17,7 @@ public class NaverSearchController {
 
     private final NaverSearchService naverSearchService;
 
+    //네이버검색
     @GetMapping("/naver")
     @Operation(summary="검색 결과")
     public List<NaverSearchResultDto> search(
