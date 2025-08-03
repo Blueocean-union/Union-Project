@@ -30,7 +30,8 @@ public class NaverSearchServiceImpl implements NaverSearchService {
         String url = UriComponentsBuilder
                 .fromHttpUrl("https://openapi.naver.com/v1/search/" + target + ".json")
                 .queryParam("query", query)
-                .build(true)
+                .build()
+                .encode()
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
