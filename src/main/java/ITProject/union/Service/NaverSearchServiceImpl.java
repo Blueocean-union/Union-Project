@@ -16,7 +16,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class NaverSearchServiceImpl implements NaverSearchService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     @Value("${naver.client-id}")
     private String clientId;
