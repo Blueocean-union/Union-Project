@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
 
@@ -24,11 +25,13 @@ public class NaverSearchServiceImpl implements NaverSearchService {
     @Value("${naver.client-secret}")
     private String clientSecret;
 
-    private static final String NAVER_API_BASE = "https://openapi.naver.com/v1/search";
-
     @Override
     public List<NaverSearchResultDto> search(String query, String target) {
-        String url = NAVER_API_BASE + "/" + target + ".json?query=" + encode(query);
+        String url = UriComponentsBuilder
+                .fromHttpUrl("https://openapi.naver.com/v1/search/" + target + ".json")
+                .queryParam("query", query)
+                .build(true)
+                .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Naver-Client-Id", clientId);
