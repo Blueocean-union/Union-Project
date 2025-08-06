@@ -33,12 +33,15 @@ public class Folder {
 
     // 하위 폴더 목록
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Folder> subFolders = new ArrayList<>();
 
     // 폴더 안에 포함된 파일들
     @OneToMany(mappedBy = "folder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<FileItem> files = new ArrayList<>();
 
+    @Builder.Default
     private boolean deleted = false;
 
     private LocalDateTime createdAt;
