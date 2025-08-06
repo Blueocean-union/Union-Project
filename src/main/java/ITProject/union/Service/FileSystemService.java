@@ -29,16 +29,12 @@ public class FileSystemService {
 
     // ✅ 하위 폴더 생성
     @Transactional
-    public Long createFolder(Long subjectId, Long parentId, String folderName) {
-        Subject subject = subjectRepository.findById(subjectId)
-                .orElseThrow(() -> new RuntimeException("과목을 찾을 수 없습니다."));
-
+    public Long createFolder(Long parentId, String folderName) {
         Folder parent = folderRepository.findById(parentId)
                 .orElseThrow(() -> new RuntimeException("상위 폴더가 없습니다."));
 
         Folder folder = new Folder();
         folder.setName(folderName);
-        folder.setSubject(subject);
         folder.setParent(parent);
         folder.setCreatedAt(LocalDateTime.now());
 

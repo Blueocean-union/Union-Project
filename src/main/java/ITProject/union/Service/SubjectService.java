@@ -37,7 +37,7 @@ public class SubjectService {
 
         // ✅ 루트 폴더 생성
         Folder rootFolder = new Folder();
-        rootFolder.setName("루트");
+        rootFolder.setName("/");
         rootFolder.setSubject(subject);
         rootFolder.setParent(null);
         rootFolder.setCreatedAt(LocalDateTime.now());
