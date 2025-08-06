@@ -34,6 +34,10 @@ public class Subject {
     @Builder.Default
     private Boolean isFavorite = false;
 
+    // 과목에 속한 폴더들 (루트 폴더 포함)
+    @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Folder> folders = new ArrayList<>();
+
     private LocalDateTime createdAt;
 
 //    // 자료, 퀴즈, 요약 등과의 관계는 필요 시 추가
