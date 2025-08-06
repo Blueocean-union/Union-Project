@@ -25,7 +25,7 @@ public class FileSystemService {
     private final FolderRepository folderRepository;
     private final FileItemRepository fileItemRepository;
 
-    private final String BASE_PATH = "/uploads"; // 로컬 저장 경로
+    private final String BASE_PATH = "./uploads"; // 로컬 저장 경로
 
     // ✅ 하위 폴더 생성
     @Transactional
