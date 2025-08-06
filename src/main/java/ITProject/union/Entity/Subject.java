@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -36,6 +37,7 @@ public class Subject {
 
     // 과목에 속한 폴더들 (루트 폴더 포함)
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Folder> folders = new ArrayList<>();
 
     private LocalDateTime createdAt;

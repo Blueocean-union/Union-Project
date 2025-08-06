@@ -26,6 +26,7 @@ public class FileItem {
     @JoinColumn(name = "folder_id")
     private Folder folder;
 
+    @Builder.Default
     private boolean deleted = false;
 
     private LocalDateTime uploadedAt;
