@@ -7,6 +7,7 @@ import ITProject.union.Repository.FileItemRepository;
 import ITProject.union.Repository.FolderRepository;
 import ITProject.union.Repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class FileSystemService {
 
@@ -82,12 +84,16 @@ public class FileSystemService {
         // 디렉토리 생성
         File dir = new File(filePath);
         if (!dir.exists()) {
-            dir.mkdirs();
+            boolean created = dir.mkdirs();
+            if (!created) {
+                throw new IOException("Failed to create directory: " + filePath);
+            }
         }
 
         // 파일 저장
         File dest = new File(dir, storedFileName);
         file.transferTo(dest);
+        log.info("📁 저장 경로: {}", dest.getAbsolutePath());
 
         FileItem fileItem = new FileItem();
         fileItem.setOriginalFileName(originalName);
