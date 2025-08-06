@@ -2,6 +2,7 @@ package ITProject.union.Controller;
 
 import ITProject.union.Dto.FolderRequestDto;
 import ITProject.union.Dto.FolderResponseDto;
+import ITProject.union.Dto.FolderUpdateNameDto;
 import ITProject.union.Entity.Folder;
 import ITProject.union.Mapper.FolderMapper;
 import ITProject.union.Service.FileSystemService;
@@ -23,7 +24,6 @@ public class FolderController {
     @PostMapping
     public ResponseEntity<Long> createFolder(@RequestBody FolderRequestDto request) {
         Long folderId = fileSystemService.createFolder(
-                request.subjectId(),
                 request.parentId(),
                 request.name()
         );
@@ -33,8 +33,8 @@ public class FolderController {
     @Operation(summary = "폴더 이름 수정")
     @PatchMapping("/{id}")
     public ResponseEntity<Void> renameFolder(@PathVariable Long id,
-                                             @RequestParam String newName) {
-        fileSystemService.renameFolder(id, newName);
+                                             @RequestBody FolderUpdateNameDto request) {
+        fileSystemService.renameFolder(id, request.newName());
         return ResponseEntity.ok().build();
     }
 
