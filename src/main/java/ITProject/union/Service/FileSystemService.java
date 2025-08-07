@@ -8,12 +8,14 @@ import ITProject.union.Repository.FolderRepository;
 import ITProject.union.Repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,7 +29,8 @@ public class FileSystemService {
     private final FolderRepository folderRepository;
     private final FileItemRepository fileItemRepository;
 
-    private final String BASE_PATH = "./uploads"; // 로컬 저장 경로
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     // ✅ 하위 폴더 생성
     @Transactional
@@ -79,7 +82,8 @@ public class FileSystemService {
         String originalName = file.getOriginalFilename();
         String extension = originalName.substring(originalName.lastIndexOf("."));
         String storedFileName = uuid + "_" + originalName;
-        String filePath = BASE_PATH + "/" + folder.getSubject().getId() + "/" + folder.getId();
+        String filePath = Paths.get(uploadDir, folder.getSubject().getId().toString(), folder.getId().toString())
+                .toString();
 
         // 디렉토리 생성
         File dir = new File(filePath);
