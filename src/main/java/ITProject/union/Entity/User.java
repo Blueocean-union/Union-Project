@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -27,8 +26,9 @@ public class User {
     @Column(nullable = false, length = 30)
     private String name;
 
-    @Column(nullable = false, length = 10)
-    private String grade; // BASIC, PRO
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private Grade grade = Grade.BASIC; // ← ⭐ 기본값 BASIC
 
     private String major;
 
@@ -38,6 +38,16 @@ public class User {
 
     private LocalDateTime lastLoginAt;
 
+
+    // OAuth2.0 연동을 위한 추가 필드
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private OAuthProvider provider = OAuthProvider.GOOGLE; // GOOGLE
+
+    private String providerId; // Google 고유 식별자 (sub 값)
+
+    @Column(length = 512)
+    private String refreshToken;
 //    // 관계 매핑 예시 (일정, 학습기록, 퀴즈 등)
 //    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
 //    private List<Schedule> schedules;
