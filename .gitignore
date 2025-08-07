@@ -30,6 +30,7 @@ out/
 # === VS Code ===
 .vscode/
 
+
 # === Logs / Temp Files ===
 *.log
 *.tmp
@@ -57,3 +58,4 @@ node_modules/
 dist/
 npm-debug.log*
 yarn-debug.log*
+
