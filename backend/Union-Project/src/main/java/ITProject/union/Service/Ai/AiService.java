@@ -28,7 +28,6 @@ public class AiService {
         // 1. AI 서버로 요청 준비
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.remove("Authorization");
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new MultipartInputStreamFileResource(file.getInputStream(), file.getOriginalFilename()));
@@ -36,6 +35,8 @@ public class AiService {
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         // 2. AI 서버 요청
+        System.out.println("=== [AI 요청 헤더] ===");
+        headers.forEach((k, v) -> System.out.println(k + " : " + v));
         String aiUrl = "http://52.78.209.115:8000/pdfs/summary"; // 실제 AI 서버 주소로 교체
 
         ResponseEntity<Map> response = restTemplate.postForEntity(aiUrl, requestEntity, Map.class);
