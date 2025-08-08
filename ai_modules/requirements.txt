@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pdfplumber
+tiktoken
+openai
+torchaudio
+keybert
+scikit-learn
+jinja2
+python-multipart
