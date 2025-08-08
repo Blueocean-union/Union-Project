@@ -35,7 +35,7 @@ public class AiService {
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         // 2. AI 서버 요청
-        String aiUrl = "http://127.0.0.1:8000/pdf/summary"; // 실제 AI 서버 주소로 교체
+        String aiUrl = "http://127.0.0.1:8000/pdfs/summary"; // 실제 AI 서버 주소로 교체
 
         ResponseEntity<Map> response = restTemplate.postForEntity(aiUrl, requestEntity, Map.class);
 
