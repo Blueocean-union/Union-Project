@@ -26,7 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // 🔓 인증 없이 통과시킬 경로 리스트
     private static final List<String> skipUrls = List.of(
             "/auth/signup", "/auth/signin", "/auth/reissue",
-            "/oauth2", "/oauth2/", "/login", "/login/", "/api/ai"
+            "/oauth2", "/oauth2/", "/login", "/login/"
     );
 
     @Override
