@@ -16,6 +16,7 @@ public class AiController {
 
     @PostMapping("/pdfs/summary")
     public ResponseEntity<PdfSummaryResponse> summarizePdf(@RequestParam("file") MultipartFile file) {
+        System.out.println("🔥🔥🔥 PDF 요약 API 진입했음");
         try {
             PdfSummaryResponse response = aiService.summarizePdf(file);
             return ResponseEntity.ok(response);
