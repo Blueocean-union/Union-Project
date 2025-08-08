@@ -14,7 +14,7 @@ public class AiController {
 
     private final AiService aiService;
 
-    @PostMapping("/pdf/summary")
+    @PostMapping("/pdfs/summary")
     public ResponseEntity<PdfSummaryResponse> summarizePdf(@RequestParam("file") MultipartFile file) {
         try {
             PdfSummaryResponse response = aiService.summarizePdf(file);
