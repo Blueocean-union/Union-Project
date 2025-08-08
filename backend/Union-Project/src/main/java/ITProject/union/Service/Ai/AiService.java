@@ -28,6 +28,7 @@ public class AiService {
         // 1. AI 서버로 요청 준비
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        headers.remove("Authorization");
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new MultipartInputStreamFileResource(file.getInputStream(), file.getOriginalFilename()));
