@@ -20,7 +20,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Build with Gradle
-        run: ./backend/Union-Project/gradlew clean build -x test
+        run: |
+          cd backend/Union-Project
+          chmod +x gradlew
+          ./gradlew clean build -x test --stacktrace
 
       - name: cicd to EC2
         uses: appleboy/scp-action@v0.1.4
