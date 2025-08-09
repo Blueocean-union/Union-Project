@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { CommonStyles } from '../styles/CommonStyles';
+import { CommonStyles } from '../../styles/CommonStyles';
 
 export default function SearchScreen() {
     return (

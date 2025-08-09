@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { RootStackParamList } from '../App'; // App.tsx에서 export된 타입
+import { RootStackParamList } from '../../App'; // App.tsx에서 export된 타입
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
