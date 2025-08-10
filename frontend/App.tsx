@@ -2,9 +2,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import AuthStackScreen from './screens/AuthStack';
+import AuthStackScreen from './screens/auth/AuthStack';
 import MainTabs from './screens/MainTabs';
-import SplashScreen from './screens/SplashScreen';
+import SplashScreen from './screens/auth/SplashScreen';
 
 export type RootStackParamList = {
   Splash: undefined;

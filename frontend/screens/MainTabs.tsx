@@ -2,15 +2,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
-import CalendarAppScreen from './CalendarAppScreen';
-import HomeScreen from './HomeScreen';
-import LogoutScreen from './LogoutScreen';
-import QuestionCategoryScreen from './QuestionCategoryScreen';
-import QuestionDetailScreen from './QuestionDetailScreen';
-import QuestionListScreen from './QuestionListScreen';
-import SearchScreen from './SearchScreen';
-import SubjectDetailScreen from './SubjectDetailScreen';
-import SubjectListScreen from './SubjectListScreen';
+import CalendarAppScreen from './schedule/CalendarAppScreen';
+import HomeScreen from './home/HomeScreen';
+import LogoutScreen from './auth/LogoutScreen';
+import QuestionCategoryScreen from './question/QuestionCategoryScreen';
+import QuestionDetailScreen from './question/QuestionDetailScreen';
+import QuestionListScreen from './question/QuestionListScreen';
+import SearchScreen from './search/SearchScreen';
+import SubjectDetailScreen from './subject/SubjectDetailScreen';
+import SubjectListScreen from './subject/SubjectListScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -43,6 +43,16 @@ function CalendarStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CalendarApp" component={CalendarAppScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// 검색 스택
+function SearchStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="SearchMain" component={SearchScreen} />
+      {/* 여기에 검색 결과 화면, 검색 필터 화면 등을 추가할 수 있습니다 */}
     </Stack.Navigator>
   );
 }
@@ -136,7 +146,7 @@ export default function MainTabs() {
       <Tab.Screen name="일정" component={CalendarStack} />
       <Tab.Screen name="홈" component={HomeStack} />
       <Tab.Screen name="질문방" component={QuestionStack} />
-      <Tab.Screen name="검색" component={SearchScreen} />
+      <Tab.Screen name="검색" component={SearchStack} />
     </Tab.Navigator>
   );
 }
