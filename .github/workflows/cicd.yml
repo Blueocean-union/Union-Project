@@ -19,33 +19,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Create application.properties
-        run: |
-          mkdir -p backend/Union-Project/src/main/resources
-          cat > backend/Union-Project/src/main/resources/application.properties << 'EOF'
-          spring.application.name=union
-          spring.datasource.url=${{ secrets.DB_URL }}
-          spring.datasource.username=${{ secrets.DB_USER }}
-          spring.datasource.password=${{ secrets.DB_PASSWORD }}
-          spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-          spring.jpa.hibernate.ddl-auto=update
 
-          spring.jpa.show-sql=true
-          spring.jpa.properties.hibernate.format_sql=true
-          logging.level.org.hibernate.SQL=DEBUG
-          spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
-
-          server.address=0.0.0.0
-          server.ssl.enabled=false
-
-          spring.servlet.multipart.enabled=true
-          spring.servlet.multipart.max-file-size=50MB
-          spring.servlet.multipart.max-request-size=50MB
-          logging.level.org.springframework.web=DEBUG
-          logging.level.org.springframework.web.multipart=DEBUG
-
-          file.upload-dir=/home/ubuntu/uploads
-          EOF
 
       - name: Build with Gradle
         run: |
