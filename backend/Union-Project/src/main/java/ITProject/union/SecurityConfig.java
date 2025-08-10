@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login/**", "/oauth2/**", "/auth/reissue", "/auth/signup", "/auth/signin",
+                        .requestMatchers("/", "/login/**", "/oauth2/**", "/auth/reissue", "/auth/signup", "/auth/signin", "/api/ai/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -82,12 +82,5 @@ public class SecurityConfig {
         return source;
     }
 
-    @Bean
-    public FilterRegistrationBean<MultipartFilter> multipartFilter() {
-        FilterRegistrationBean<MultipartFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new MultipartFilter());
-        registration.setOrder(-102); // SpringSecurityFilterChain보다 먼저 실행
-        return registration;
-    }
 
 }

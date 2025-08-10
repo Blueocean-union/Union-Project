@@ -5,6 +5,7 @@ import ITProject.union.Service.Ai.AiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,13 +18,17 @@ public class AiController {
 
     private final AiService aiService;
     @Operation(summary = "pdf 요약")
-    @PostMapping("/pdf/summary")
-    public ResponseEntity<PdfSummaryResponse> summarizePdf(@RequestParam("file") MultipartFile file) {
+    @PostMapping(
+            value = "/pdfs/summary",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<PdfSummaryResponse> summarizePdf(@RequestPart("file") MultipartFile file) {
         System.out.println("🔥🔥🔥 PDF 요약 API 진입했음");
         try {
             PdfSummaryResponse response = aiService.summarizePdf(file);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
     }

@@ -30,15 +30,17 @@ public class AiService {
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new MultipartInputStreamFileResource(file.getInputStream(), file.getOriginalFilename()));
+        body.add("files", new MultipartInputStreamFileResource(file.getInputStream(), file.getOriginalFilename()));
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         // 2. AI 서버 요청
-        String aiUrl = "http://52.78.209.115:8000/pdf/summary"; // 실제 AI 서버 주소로 교체
-
+        String aiUrl = "http://52.78.209.115:8000/pdfs/summary"; // 실제 AI 서버 주소로 교체
+        System.out.println("📡 FastAPI로 전송: " + aiUrl);
+        System.out.println("요청 파일: " + file.getOriginalFilename());
         ResponseEntity<Map> response = restTemplate.postForEntity(aiUrl, requestEntity, Map.class);
-
+        System.out.println("AI 응답 코드: " + response.getStatusCode());
+        System.out.println("AI 응답 바디: " + response.getBody());
         if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null || !response.getBody().containsKey("summary")) {
             throw new RuntimeException("AI 서버 응답 오류: " + response);
         }
