@@ -17,9 +17,9 @@ public class PdfSummary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(columnDefinition = "LONGTEXT")
     private String originalFileName;
 
+    @Column(columnDefinition = "LONGTEXT")
     private String summary;
 
     private LocalDateTime createdAt;
