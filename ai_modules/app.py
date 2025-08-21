@@ -1,3 +1,4 @@
+from typing import Optional, Union
 from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -49,26 +50,34 @@ async def get_audio_result(rid: str):
             return JSONResponse(status_code=202, content=result)
         if result:
             return {"text": result}
-        return JSONResponse(
-            status_code=202,
-            content={"message": "아직 처리 중입니다. 잠시 후 다시 시도해주세요."}
-        )
+        return JSONResponse(status_code=202, content={"message": "아직 처리 중입니다. 잠시 후 다시 시도해주세요."})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"전사 결과 조회 중 오류: {str(e)}"})
 
-@app.post("/prompt")
+@app.post("/prompt") # 에러 수정
 async def run_prompt_endpoint(
-    prompt: str = Form(None),
-    file: UploadFile = File(None),
-    request: Request = None
+    request: Request,
+    prompt: Optional[str] = Form(None),
+    file: Union[UploadFile, str, None] = File(None),
 ):
     try:
-        text = prompt if prompt else None
-        image = file.file if file else None
+        content_type = (request.headers.get("content-type") or "").lower()
+        text = prompt
+        image = None
+        if "application/json" in content_type:
+            data = await request.json()
+            text = (data or {}).get("text")
+            file = None
+        if isinstance(file, str) or (isinstance(file, UploadFile) and not getattr(file, "filename", "")):
+            file = None
+        if isinstance(file, UploadFile):
+            image = file.file
+        if not text and not image:
+            return JSONResponse(status_code=400, content={"error": "prompt나 file 중 하나는 제공해야 합니다."})
         result = run_prompt(text=text, image=image)
         return {"result": result}
     except Exception as e:
-        return {"error": str(e)}
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/pdfs/quiz")
 async def generate_quiz_from_pdfs(
@@ -76,7 +85,6 @@ async def generate_quiz_from_pdfs(
     key_names: str = Form('{"list_key": "quizzes", "question_key": "question", "difficulty_key": "difficulty", "option1_key": "option1", "option2_key": "option2", "option3_key": "option3", "option4_key": "option4", "answer_explanation_key": "answer_explanation"}')
 ):
     try:
-        # key_names 파싱
         try:
             key_config = json.loads(key_names)
             list_key = key_config.get("list_key", "quizzes")
@@ -87,8 +95,6 @@ async def generate_quiz_from_pdfs(
             option3_key = key_config.get("option3_key", "option3")
             option4_key = key_config.get("option4_key", "option4")
             answer_explanation_key = key_config.get("answer_explanation_key", "answer_explanation")
-            
-            # 키 이름 유효성 검증
             for key in [list_key, question_key, difficulty_key, option1_key, option2_key, option3_key, option4_key, answer_explanation_key]:
                 if not isinstance(key, str) or not key.strip() or " " in key:
                     return {"error": "키 이름은 공백 없는 문자열이어야 합니다."}
@@ -97,13 +103,10 @@ async def generate_quiz_from_pdfs(
 
         file_objs = [file.file for file in files]
         text_chunks = extract_texts_from_multiple_pdfs(file_objs)
-
         if not text_chunks:
             return {"error": "PDF에서 텍스트를 추출하지 못했습니다."}
-
         merged_text = "\n".join(text_chunks)
         split_chunks = split_text_by_tokens(merged_text, max_tokens=8192)
-
         result_list = []
         for chunk in split_chunks:
             quizzes = generate_quiz([chunk])
@@ -120,9 +123,7 @@ async def generate_quiz_from_pdfs(
                     answer_explanation_key: quiz["answer_explanation"]
                 }
                 result_list.append(formatted_quiz)
-
         return {list_key: result_list}
-
     except Exception as e:
         return {"error": f"퀴즈 생성 중 오류 발생: {str(e)}"}
 
