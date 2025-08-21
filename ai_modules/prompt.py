@@ -1,11 +1,15 @@
 from typing import Optional, BinaryIO
 import base64
 from openai import OpenAI
-import os
 from dotenv import load_dotenv
-load_dotenv()
+import os
+
+load_dotenv("/etc/fastapi.env")
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("OPENAI_API_KEY가 환경 변수에 설정되지 않았습니다.")
 
 def run_prompt(
     text: Optional[str] = None,

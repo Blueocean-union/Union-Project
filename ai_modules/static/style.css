@@ -1,0 +1,109 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 30px;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 1.3em;
+    color: #222;
+
+
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+input[type="file"],
+input[type="text"] {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+    padding: 8px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-top: 5px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+pre {
+    background-color: #f0f0f0;
+    padding: 12px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.ad-toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background-color: #fefefe;
+    color: #222;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    max-width: 350px;
+    max-height: 250px;
+    overflow-y: auto;
+    font-size: 0.95em;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.ad-toast button {
+    background: none;
+    border: none;
+    font-size: 1.3em;
+    font-weight: bold;
+    cursor: pointer;
+    color: #888;
+    margin-left: auto;
+}
+
+.hidden {
+    display: none;
+}
