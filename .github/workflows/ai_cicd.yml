@@ -48,7 +48,7 @@ jobs:
         run: echo "No changes in ${APP_DIR}; skipping." && exit 78
 
       - name: Upload ai_modules → EC2:${{ env.TARGET_DIR }}
-        uses: appleboy/scp-action@v1.0.7
+        uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
