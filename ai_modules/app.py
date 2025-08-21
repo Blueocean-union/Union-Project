@@ -2,83 +2,129 @@ from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-
-from pdf_utils import extract_text_from_pdf
-from whisper_api import transcribe_audio_file
-from openai_api import summarize_text
-from problem import generate_problem
-from ad_recommender import recommend_advertisement
-
-
 import uvicorn
-import os
-import tempfile
+import json
 
-user_usage_count = {}
-MAX_USES_BEFORE_AD = 5
+from pdf_utils import extract_texts_from_multiple_pdfs, split_text_by_tokens
+from daglo_api import request_transcription, get_transcription_result
+from openai_api import summarize_text
+from prompt import run_prompt
+from quiz import generate_quiz
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-
-@app.post("/pdf/summary")
-async def summarize_pdf(file: UploadFile = File(...)):
+@app.post("/pdfs/summary")
+async def summarize_multiple_pdfs(files: list[UploadFile] = File(...)):
     try:
-        chunks = extract_text_from_pdf(file.file)
+        file_objs = [file.file for file in files]
+        chunks = extract_texts_from_multiple_pdfs(file_objs)
         summary = summarize_text(chunks)
         return {"summary": summary}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return {"error": str(e)}
 
-
-@app.post("/audio/summary")
-async def summarize_audio(file: UploadFile = File(...)):
+@app.post("/audio/request")
+async def upload_audio(file: UploadFile = File(...)):
     try:
-        # Whisper API 기반 전사
-        transcript = transcribe_audio_file(file.file)
-
-        # 요약
-        summary = summarize_text(transcript)
-
-        return {"transcript": transcript, "summary": summary}
-
+        result = request_transcription(file.file, filename=file.filename)
+        if isinstance(result, dict) and "error" in result:
+            return JSONResponse(status_code=500, content=result)
+        return {"rid": result}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(status_code=500, content={"error": f"오디오 업로드 중 오류: {str(e)}"})
 
+@app.get("/audio/result/{rid}")
+async def get_audio_result(rid: str):
+    try:
+        result = get_transcription_result(rid)
+        if isinstance(result, dict):
+            if "error" in result:
+                return JSONResponse(status_code=500, content=result)
+            return JSONResponse(status_code=202, content=result)
+        if result:
+            return {"text": result}
+        return JSONResponse(
+            status_code=202,
+            content={"message": "아직 처리 중입니다. 잠시 후 다시 시도해주세요."}
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"전사 결과 조회 중 오류: {str(e)}"})
 
-@app.post("/problem")
-async def handle_problem(prompt: str = Form(None), file: UploadFile = File(None), request: Request = None):
+@app.post("/prompt")
+async def run_prompt_endpoint(
+    prompt: str = Form(None),
+    file: UploadFile = File(None),
+    request: Request = None
+):
     try:
         text = prompt if prompt else None
         image = file.file if file else None
+        result = run_prompt(text=text, image=image)
+        return {"result": result}
+    except Exception as e:
+        return {"error": str(e)}
 
-        # 사용자 ID 추적
-        user_id = request.client.host
-        user_usage_count[user_id] = user_usage_count.get(user_id, 0) + 1
+@app.post("/pdfs/quiz")
+async def generate_quiz_from_pdfs(
+    files: list[UploadFile] = File(...),
+    key_names: str = Form('{"list_key": "quizzes", "question_key": "question", "difficulty_key": "difficulty", "option1_key": "option1", "option2_key": "option2", "option3_key": "option3", "option4_key": "option4", "answer_explanation_key": "answer_explanation"}')
+):
+    try:
+        # key_names 파싱
+        try:
+            key_config = json.loads(key_names)
+            list_key = key_config.get("list_key", "quizzes")
+            question_key = key_config.get("question_key", "question")
+            difficulty_key = key_config.get("difficulty_key", "difficulty")
+            option1_key = key_config.get("option1_key", "option1")
+            option2_key = key_config.get("option2_key", "option2")
+            option3_key = key_config.get("option3_key", "option3")
+            option4_key = key_config.get("option4_key", "option4")
+            answer_explanation_key = key_config.get("answer_explanation_key", "answer_explanation")
+            
+            # 키 이름 유효성 검증
+            for key in [list_key, question_key, difficulty_key, option1_key, option2_key, option3_key, option4_key, answer_explanation_key]:
+                if not isinstance(key, str) or not key.strip() or " " in key:
+                    return {"error": "키 이름은 공백 없는 문자열이어야 합니다."}
+        except json.JSONDecodeError:
+            return {"error": "key_names는 유효한 JSON 문자열이어야 합니다."}
 
-        # 문제 생성
-        result = generate_problem(text=text, image=image)
+        file_objs = [file.file for file in files]
+        text_chunks = extract_texts_from_multiple_pdfs(file_objs)
 
-        # 광고 추천
-        ad_message = None
-        if user_usage_count[user_id] >= MAX_USES_BEFORE_AD:
-            # 텍스트가 없으면 result에서 [문제 설명] 추출
-            base_for_ad = text if text else result
-            ad_message = recommend_advertisement(prompt=base_for_ad)
+        if not text_chunks:
+            return {"error": "PDF에서 텍스트를 추출하지 못했습니다."}
 
-        return {"problem": result, "ad": ad_message}
+        merged_text = "\n".join(text_chunks)
+        split_chunks = split_text_by_tokens(merged_text, max_tokens=8192)
+
+        result_list = []
+        for chunk in split_chunks:
+            quizzes = generate_quiz([chunk])
+            if "error" in quizzes[0]:
+                return {"error": quizzes[0]["error"]}
+            for quiz in quizzes:
+                formatted_quiz = {
+                    question_key: quiz["question"],
+                    difficulty_key: quiz["difficulty"],
+                    option1_key: quiz["option1"],
+                    option2_key: quiz["option2"],
+                    option3_key: quiz["option3"],
+                    option4_key: quiz["option4"],
+                    answer_explanation_key: quiz["answer_explanation"]
+                }
+                result_list.append(formatted_quiz)
+
+        return {list_key: result_list}
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-
+        return {"error": f"퀴즈 생성 중 오류 발생: {str(e)}"}
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
