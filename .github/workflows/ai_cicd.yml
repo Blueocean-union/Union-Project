@@ -1,5 +1,4 @@
 name: ai_cicd
-
 on:
   push:
     branches: [ develop ]
@@ -9,24 +8,19 @@ on:
   schedule:
     - cron: '0 18 * * *' # KST 03:00 (UTC 18:00)
   workflow_dispatch: {}
-
 concurrency:
   group: ai-modules-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 env:
   APP_DIR: ai_modules
   TARGET_DIR: /home/ubuntu/fastapi
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Preflight – check required secrets
         run: |
           [ -n "${{ secrets.EC2_HOST }}" ] && \
@@ -35,18 +29,6 @@ jobs:
             echo "Missing one of: EC2_HOST / EC2_USER / EC2_SSH_KEY";
             exit 1;
           }
-
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            mine:
-              - '${{ env.APP_DIR }}/**'
-
-      - name: Skip if no changes in ai_modules (push only)
-        if: ${{ github.event_name == 'push' && steps.changes.outputs.mine != 'true' }}
-        run: echo "No changes in ${APP_DIR}; skipping." && exit 78
-
       - name: Upload ai_modules → EC2:${{ env.TARGET_DIR }}
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -66,7 +48,6 @@ jobs:
             **/.venv/**
             **/venv/**
             **/node_modules/**
-
       - name: Restart FastAPI service
         uses: appleboy/ssh-action@v1.0.3
         with:
