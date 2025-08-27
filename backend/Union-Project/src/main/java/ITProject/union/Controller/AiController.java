@@ -11,7 +11,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
+import ITProject.union.Dto.Ai.AiQuizDynamicListResponseDto;
+import ITProject.union.Dto.Ai.PdfQuizRequestKeysDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
@@ -58,6 +61,44 @@ public class AiController {
         System.out.println("🎧 오디오 전사 결과 조회 API 진입: rid=" + rid);
         try {
             AudioResultResponse res = aiService.getAudioTranscriptionResult(rid);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @Operation(summary = "PDF들로 AI 퀴즈 생성 (FastAPI와 동일한 JSON 키 구조 반환)")
+    @PostMapping(
+            value = "/pdfs/quiz",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<AiQuizDynamicListResponseDto> createQuizzesFromPdfs(
+            @RequestPart("files") MultipartFile[] files,
+            // FastAPI와 호환: key_names 라고 보내도 되고, 프론트 명확성을 위해 keyNames도 허용
+            @RequestPart(value = "keyNames", required = false) String keyNamesJson,
+            @RequestParam(value = "model", required = false) String model,
+            HttpServletRequest request
+    ) {
+        System.out.println("🧩 PDF → 퀴즈 생성 API 진입");
+        try {
+            // keyNames JSON 파싱 (없으면 기본값)
+            PdfQuizRequestKeysDto keys;
+            if (keyNamesJson == null || keyNamesJson.isBlank()) {
+                keys = PdfQuizRequestKeysDto.defaults();
+            } else {
+                // { "list_key": "...", "question_key": "...", ... }
+                ObjectMapper om = new ObjectMapper();
+                keys = om.readValue(keyNamesJson, PdfQuizRequestKeysDto.class);
+            }
+
+            // 요청자 IP (배치 메타에 기록)
+            String clientIp = request.getRemoteAddr();
+
+            AiQuizDynamicListResponseDto res =
+                    aiService.createQuizzesFromPdfs(files, keys, model, clientIp);
+
             return ResponseEntity.ok(res);
         } catch (Exception e) {
             e.printStackTrace();
