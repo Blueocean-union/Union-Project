@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 문제 & 요약 생성기</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI 문제 & 요약 생성기</h1>
+
+        <div class="card">
+            <h2>📄 PDF 요약</h2>
+            <input type="file" id="pdfFiles" accept="application/pdf" multiple>
+            <button onclick="summarizePDFs()">요약 생성</button>
+            <pre id="pdfSummaryResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>🎙️ 오디오 전사 (다글로)</h2>
+            <input type="file" id="audioFile" accept="audio/*">
+            <button onclick="requestTranscription()">전사 요청 & 결과 확인</button>
+            <pre id="audioResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>💬 문제 생성 (대화형)</h2>
+            <input type="text" id="promptText" placeholder="프롬프트를 입력하세요...">
+            <input type="file" id="promptImage" accept="image/*">
+            <button onclick="runPrompt()">보내기</button>
+            <pre id="promptResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>📝 PDF 퀴즈 생성</h2>
+            <input type="file" id="quizFiles" accept="application/pdf" multiple>
+            <input type="text" id="keyNames" placeholder='JSON 키 이름 (예: {"list_key": "quizzes", "question_key": "question", ...})' value='{"list_key": "quizzes", "question_key": "question", "difficulty_key": "difficulty", "option1_key": "option1", "option2_key": "option2", "option3_key": "option3", "option4_key": "option4", "answer_explanation_key": "answer_explanation"}'>
+            <button onclick="generateQuiz()">퀴즈 생성</button>
+            <pre id="quizResult"></pre>
+        </div>
+    </div>
+
+    <div id="toast" class="ad-toast hidden"></div>
+
+    <script>
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = `${message}<button onclick="hideToast()">×</button>`;
+            toast.classList.remove('hidden');
+            setTimeout(hideToast, 5000);
+        }
+
+        function hideToast() {
+            document.getElementById('toast').classList.add('hidden');
+        }
+
+        async function summarizePDFs() {
+            const files = document.getElementById('pdfFiles').files;
+            if (!files.length) {
+                showToast('PDF 파일을 선택해주세요.');
+                return;
+            }
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+            try {
+                const response = await fetch('/pdfs/summary', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                document.getElementById('pdfSummaryResult').textContent = result.summary || result.error;
+                showToast('요약이 완료되었습니다.');
+            } catch (error) {
+                showToast('요약 중 오류 발생: ' + error.message);
+            }
+        }
+
+        async function requestTranscription() {
+            const file = document.getElementById('audioFile').files[0];
+            if (!file) {
+                showToast('오디오 파일을 선택해주세요.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const response = await fetch('/audio/request', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.rid) {
+                    showToast('전사 요청 완료: ' + result.rid);
+                    const checkResult = async () => {
+                        const res = await fetch(`/audio/result/${result.rid}`);
+                        const data = await res.json();
+                        if (data.text) {
+                            document.getElementById('audioResult').textContent = data.text;
+                            showToast('전사 완료');
+                        } else {
+                            showToast(data.message);
+                            setTimeout(checkResult, 2000);
+                        }
+                    };
+                    setTimeout(checkResult, 2000);
+                } else {
+                    showToast('전사 요청 실패: ' + result.error);
+                }
+            } catch (error) {
+                showToast('전사 요청 중 오류 발생: ' + error.message);
+            }
+        }
+
+        async function runPrompt() {
+            const text = document.getElementById('promptText').value;
+            const file = document.getElementById('promptImage').files[0];
+            if (!text && !file) {
+                showToast('텍스트 또는 이미지를 입력해주세요.');
+                return;
+            }
+            const formData = new FormData();
+            if (text) formData.append('prompt', text);
+            if (file) formData.append('file', file);
+            try {
+                const response = await fetch('/prompt', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                document.getElementById('promptResult').textContent = result.result || result.error;
+                showToast('프롬프트 처리가 완료되었습니다.');
+            } catch (error) {
+                showToast('프롬프트 처리 중 오류 발생: ' + error.message);
+            }
+        }
+
+        async function generateQuiz() {
+            const files = document.getElementById('quizFiles').files;
+            const keyNamesInput = document.getElementById('keyNames').value;
+            if (!files.length) {
+                showToast('PDF 파일을 선택해주세요.');
+                return;
+            }
+            let keyNames;
+            try {
+                keyNames = JSON.parse(keyNamesInput);
+            } catch (error) {
+                showToast('유효하지 않은 JSON 형식의 key_names입니다.');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+            formData.append('key_names', keyNamesInput);
+
+            try {
+                const response = await fetch('/pdfs/quiz', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                const quizResult = document.getElementById('quizResult');
+                quizResult.textContent = ''; // 이전 내용 지우기
+
+                if (result.error) {
+                    quizResult.textContent = result.error;
+                    showToast('퀴즈 생성 실패: ' + result.error);
+                    return;
+                }
+
+                const listKey = keyNames.list_key || 'quizzes';
+                const questionKey = keyNames.question_key || 'question';
+                const difficultyKey = keyNames.difficulty_key || 'difficulty';
+                const option1Key = keyNames.option1_key || 'option1';
+                const option2Key = keyNames.option2_key || 'option2';
+                const option3Key = keyNames.option3_key || 'option3';
+                const option4Key = keyNames.option4_key || 'option4';
+                const answerExplanationKey = keyNames.answer_explanation_key || 'answer_explanation';
+
+                const quizzes = result[listKey] || [];
+                if (!quizzes.length) {
+                    quizResult.textContent = '퀴즈를 생성하지 못했습니다.';
+                    showToast('퀴즈를 생성하지 못했습니다.');
+                    return;
+                }
+
+                quizzes.forEach((quiz, index) => {
+                    // 난이도를 n/5 형식으로 변환 (예: "중" -> "3/5")
+                    let difficulty = quiz[difficultyKey] || '없음';
+                    if (/^\d+\/\d+$/.test(difficulty)) {
+                        // 이미 n/5 형식이면 그대로 사용
+                    } else if (/^\d+$/.test(difficulty)) {
+                        // 숫자만 있으면 /5 추가
+                        difficulty = `${difficulty}/5`;
+                    } else {
+                        // 한글 난이도 처리 (간단한 매핑, 필요 시 더 정교히 조정)
+                        const difficultyMap = { '쉬움': '1/5', '중': '3/5', '어려움': '5/5' };
+                        difficulty = difficultyMap[difficulty] || '3/5'; // 기본값 3/5
+                    }
+
+                    const quizText = `
+--- 문제 ${index + 1} ---
+질문: ${quiz[questionKey] || '없음'}
+난이도: ${difficulty}
+1: ${quiz[option1Key] || '없음'}
+2: ${quiz[option2Key] || '없음'}
+3: ${quiz[option3Key] || '없음'}
+4: ${quiz[option4Key] || '없음'}
+정답과 해설: ${quiz[answerExplanationKey] || '없음'}
+                    `;
+                    quizResult.textContent += quizText + '\n';
+                });
+                showToast('퀴즈 생성이 완료되었습니다.');
+            } catch (error) {
+                showToast('퀴즈 생성 중 오류 발생: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
