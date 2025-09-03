@@ -33,7 +33,7 @@ export default function QuizResultScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>퀴즈 결과</Text>
-      <FlatList data={quizData} renderItem={renderItem} keyExtractor={item => item.id} />
+      <FlatList data={quizData} renderItem={renderItem} keyExtractor={(item: QuizQuestion) => item.id} />
     </View>
   );
 }

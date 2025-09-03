@@ -77,7 +77,7 @@ function HomeStack() {
       <Stack.Screen
         name="HomeMain"
         component={HomeScreen}
-        options={({ navigation }) => ({
+        options={({ navigation }: any) => ({
           title: '홈',
           headerRight: () => (
             <TouchableOpacity
@@ -154,7 +154,7 @@ export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <MyTabBar {...props} />}
+      tabBar={(props: any) => <MyTabBar {...props} />}
     >
       <Tab.Screen name="과목" component={SubjectStack} />
       <Tab.Screen name="일정" component={CalendarStack} />

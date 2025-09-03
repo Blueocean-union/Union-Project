@@ -3,7 +3,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+// import Svg, { Circle } from 'react-native-svg';
 
 interface Subject {
   id: number;
@@ -59,29 +59,11 @@ const getTodaySchedules = async (): Promise<Schedule[]> => {
 };
 
 const CircularProgress = ({ percentage, title, size = 100 }: { percentage: number; title: string; size?: number }) => {
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
   return (
     <View style={styles.progressContainer}>
-      <View style={{ width: size, height: size }}>
-        <Svg width={size} height={size}>
-          <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#E5E7EB" strokeWidth={strokeWidth} fill="transparent" />
-          <Circle
-            cx={size / 2} cy={size / 2} r={radius} stroke="#3B4B87" strokeWidth={strokeWidth}
-            fill="transparent" strokeLinecap="round" strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset} transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-        </Svg>
-        <View style={[styles.progressCenter, {
-          width: size - (strokeWidth * 3), height: size - (strokeWidth * 3),
-          borderRadius: (size - (strokeWidth * 3)) / 2,
-          top: strokeWidth * 1.5, left: strokeWidth * 1.5,
-        }]}>
-          <Text style={styles.progressSubjectName}>{title}</Text>
-        </View>
+      <View style={[styles.progressCircle, { width: size, height: size }]}>
+        <Text style={styles.progressPercentage}>{percentage}%</Text>
+        <Text style={styles.progressSubjectName}>{title}</Text>
       </View>
     </View>
   );
@@ -373,8 +355,9 @@ const styles = StyleSheet.create({
   progressSection: { paddingVertical: 20, paddingHorizontal: 70 },
   progressBox: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, minHeight: 200 },
   progressContainer: { alignItems: 'center', marginHorizontal: 5, justifyContent: 'center' },
-  progressCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEEFF6', borderRadius: 50 },
-  progressSubjectName: { fontSize: 18, fontWeight: 'bold', color: '#3B4B87', textAlign: 'center', lineHeight: 18 },
+  progressCircle: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEEFF6', borderRadius: 50, borderWidth: 3, borderColor: '#3B4B87' },
+  progressPercentage: { fontSize: 24, fontWeight: 'bold', color: '#3B4B87' },
+  progressSubjectName: { fontSize: 14, fontWeight: 'bold', color: '#3B4B87', textAlign: 'center', marginTop: 4 },
   loadingText: { fontSize: 16, color: '#6B7280', marginLeft: 10 },
   noDataText: { fontSize: 18, color: '#6B7280', textAlign: 'center', marginBottom: 10 },
   refreshButton: { backgroundColor: '#3B4B87', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
