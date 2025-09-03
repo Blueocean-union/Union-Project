@@ -26,8 +26,8 @@ const Stack = createNativeStackNavigator();
 function SubjectStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SubjectList" component={SubjectListScreen} />
-      <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen} />
+      <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
+      <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
     </Stack.Navigator>
   );
 }
@@ -37,7 +37,7 @@ function QuestionStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="QuestionCategory" component={QuestionCategoryScreen} />
       <Stack.Screen name="QuestionList" component={QuestionListScreen} />
-      <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen} />
+      <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen as any} />
     </Stack.Navigator>
   );
 }

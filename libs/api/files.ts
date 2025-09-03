@@ -1,5 +1,5 @@
 // 파일 API 래퍼
-import axios from '../axios';
+import api from './api';
 
 export type FileItem = {
   id: number;
@@ -12,7 +12,7 @@ export type FileItem = {
 
 // 폴더 내 파일 목록: GET /api/파일/폴더/{folderId}
 export async function listFilesInFolder(folderId: number) {
-  const res = await axios.get<FileItem[]>(`/파일/폴더/${folderId}`);
+  const res = await api.get<FileItem[]>(`/파일/폴더/${folderId}`);
   return res.data;
 }
 
@@ -25,7 +25,7 @@ export async function uploadFileMultipart(
   const form = new FormData();
   form.append('file', { uri: file.uri, name: file.name, type: file.type } as any);
 
-  const res = await axios.post<number>(`/파일?folderId=${folderId}`, form, {
+  const res = await api.post<number>(`/파일?folderId=${folderId}`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data; // fileId
@@ -33,11 +33,11 @@ export async function uploadFileMultipart(
 
 // 삭제: DELETE /api/파일/{fileId}
 export async function removeFile(fileId: number) {
-  await axios.delete(`/파일/${fileId}`);
+  await api.delete(`/파일/${fileId}`);
 }
 
-// 다운로드 URL 생성 (절대경로가 필요하면 axios.defaults.baseURL 사용)
+// 다운로드 URL 생성 (절대경로가 필요하면 api.defaults.baseURL 사용)
 export function buildDownloadUrl(fileId: number) {
-  const base = (axios.defaults.baseURL || '').replace(/\/+$/, '');
+  const base = (api.defaults.baseURL || '').replace(/\/+$/, '');
   return `${base}/파일/${fileId}/다운로드`;
 }

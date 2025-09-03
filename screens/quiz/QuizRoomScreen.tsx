@@ -1,91 +1,84 @@
+// screens/QuizRoomScreen.tsx
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import type { QuizItem } from '../../types/quiz';
+import { View, Text, Button, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+
+export type QuizQuestion = {
+  id: string;
+  text: string;
+  choices: { id: string; text: string }[];
+  answerId: string;
+};
+
+type RouteParams = { quizData: QuizQuestion[] };
 
 export default function QuizRoomScreen() {
-  const nav = useNavigation<any>();
   const route = useRoute<any>();
-  const quizzes: QuizItem[] = route.params?.quizzes || [];
+  const navigation = useNavigation<any>();
 
-  const [idx, setIdx] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [correct, setCorrect] = useState(0);
+  const quizData: QuizQuestion[] = (route.params?.quizData ?? []) as QuizQuestion[];
 
-  const q = useMemo(() => quizzes[idx], [quizzes, idx]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [userAnswers, setUserAnswers] = useState<{ [key: string]: string }>({});
 
-  const submit = () => {
-    if (selected == null) {
-      Alert.alert('선택', '보기를 선택해 주세요.');
-      return;
-    }
-    const isCorrect =
-      typeof q?.correctIndex === 'number' ? q.correctIndex === selected : false;
-    if (isCorrect) setCorrect((c) => c + 1);
+  const q = useMemo(() => quizData[currentIndex], [quizData, currentIndex]);
 
-    if (idx + 1 >= quizzes.length) {
-      nav.replace('QuizResult', { total: quizzes.length, correct: isCorrect ? correct + 1 : correct });
+  const handleSelect = (id: string) => setSelectedId(id);
+
+  const handleNext = () => {
+    if (!q) return;
+    setUserAnswers((prev) => ({ ...prev, [q.id]: selectedId ?? '' }));
+
+    if (currentIndex < quizData.length - 1) {
+      setSelectedId(null);
+      setCurrentIndex((prev) => prev + 1);
     } else {
-      setIdx((i) => i + 1);
-      setSelected(null);
+      navigation.navigate('QuizResult', { quizData, userAnswers });
     }
   };
 
   if (!q) {
     return (
-      <View style={SS.container}>
-        <Text>퀴즈가 없습니다.</Text>
+      <View style={styles.container}>
+        <Text>퀴즈 데이터가 없습니다.</Text>
       </View>
     );
   }
 
   return (
-    <View style={SS.container}>
-      <Text style={SS.number}>
-        {idx + 1} / {quizzes.length}
-      </Text>
-      <Text style={SS.question}>{q.question}</Text>
-
-      <View style={{ gap: 10, marginTop: 10 }}>
-        {q.options.map((opt, i) => {
-          const active = selected === i;
-          return (
-            <TouchableOpacity
-              key={i}
-              style={[SS.option, active && SS.optionActive]}
-              onPress={() => setSelected(i)}
-            >
-              <Text style={[SS.optionText, active && { color: '#fff' }]}>{opt}</Text>
-            </TouchableOpacity>
-          );
-        })}
+    <View style={styles.container}>
+      <Text style={styles.q}>{q.text}</Text>
+      <View style={{ gap: 8 }}>
+        {q.choices.map((c) => (
+          <TouchableOpacity
+            key={c.id}
+            style={[
+              styles.choice,
+              selectedId === c.id && styles.choiceSelected,
+            ]}
+            onPress={() => handleSelect(c.id)}
+          >
+            <Text style={styles.choiceText}>{c.text}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <TouchableOpacity onPress={submit} style={SS.submit}>
-        <Text style={SS.submitText}>{idx + 1 >= quizzes.length ? '결과 보기' : '다음'}</Text>
-      </TouchableOpacity>
+      <View style={{ height: 12 }} />
+      <Button title={currentIndex < quizData.length - 1 ? '다음' : '결과 보기'} onPress={handleNext} />
     </View>
   );
 }
 
-const SS = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f8fafc' },
-  number: { color: '#64748b', marginBottom: 6 },
-  question: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
-  option: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16, gap: 12 },
+  q: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  choice: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
   },
-  optionActive: { backgroundColor: '#4f6af3' },
-  optionText: { color: '#111827', fontSize: 15 },
-  submit: {
-    marginTop: 24,
-    backgroundColor: '#4f6af3',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  choiceSelected: { borderColor: '#1a73e8' },
+  choiceText: { fontSize: 16 },
 });

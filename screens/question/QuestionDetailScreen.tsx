@@ -1,18 +1,72 @@
-import React from 'react';
-import { ScrollView, Text } from 'react-native';
+// screens/QuestionDetailScreen.tsx
+import React, { useEffect, useState } from 'react';
+import { View, Text, Button, Alert, StyleSheet } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { QuestionStackParamList } from './QuestionStack';
+import { getPost, deletePost } from '../../libs/api/posts';
+import AnswersSection from './AnswersSection';
 
-export default function QuestionDetailScreen({ route }) {
+type Props = NativeStackScreenProps<QuestionStackParamList, 'QuestionDetail'>;
+
+export default function QuestionDetailScreen({ route, navigation }: Props) {
   const { question } = route.params;
+  const [data, setData] = useState<any>(question ?? null);
+
+  // ✅ 답변 섹션에서 쓸 postId (route → data 순으로 안전하게)
+  const postId = Number(
+    question?.id ??
+    route?.params?.question?.id ??
+    data?.id
+  );
+
+  useEffect(() => {
+    (async () => {
+      if (question?.id && !question?.content) {
+        const fresh = await getPost(Number(question.id));
+        setData(fresh);
+      }
+    })();
+  }, [question?.id]);
 
   return (
-    <ScrollView style={{ flex: 1, padding: 24 }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 8 }}>{question.title}</Text>
-      <Text style={{ color: '#666', marginBottom: 16 }}>{question.date}</Text>
-      <Text style={{ fontSize: 16, marginBottom: 24 }}>
-        {question.preview} 질문에 대한 자세한 설명이 여기에 들어갑니다...
-      </Text>
-      <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>사용자 a</Text>
-      <Text>→ 답변: 자료구조에서 POP을 하면 가장 마지막에 넣은 항목이 먼저 나옵니다.</Text>
-    </ScrollView>
+    <View style={styles.container}>
+      <Text style={styles.title}>{data?.title ?? '제목'}</Text>
+      {!!data?.content && <Text style={styles.content}>{data.content}</Text>}
+
+      <Button
+        title="수정"
+        onPress={() => navigation.navigate('QuestionEdit', { question: data })}
+      />
+
+      <View style={{ height: 8 }} />
+
+      <Button
+        title="삭제"
+        color="#c62828"
+        onPress={() => {
+          Alert.alert('삭제', '정말 삭제할까요?', [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '삭제',
+              style: 'destructive',
+              onPress: async () => {
+                await deletePost(Number(data?.id));
+                navigation.goBack();
+              },
+            },
+          ]);
+        }}
+      />
+
+      {/* ✅ 여기서부터 답변(댓글) 섹션 */}
+      <View style={{ height: 16 }} />
+      {Number.isFinite(postId) && <AnswersSection postId={postId} />}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
+  content: { fontSize: 16, lineHeight: 22, marginBottom: 12 },
+});

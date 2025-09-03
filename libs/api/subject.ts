@@ -1,5 +1,5 @@
 // libs/subject.ts
-import api from './axios';
+import api from './api';
 
 export async function getSubjects() {
   const res = await api.get('/api/subjects');

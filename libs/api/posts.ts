@@ -1,5 +1,5 @@
 // 질문방 CRUD (스웨거: /api/게시물)
-import axios from '../axios';
+import api from './api';
 
 export type Post = {
   id: number;
@@ -11,25 +11,25 @@ export type Post = {
 };
 
 export async function listPosts(params: { categoryId: number }) {
-  const res = await axios.get<Post[]>('/게시물', { params });
+  const res = await api.get<Post[]>('/게시물', { params });
   return res.data; // 배열 반환
 }
 
 export async function getPost(id: number) {
-  const res = await axios.get<Post>(`/게시물/${id}`);
+  const res = await api.get<Post>(`/게시물/${id}`);
   return res.data;
 }
 
 export async function createPost(body: { title: string; content: string; categoryId: number }) {
   // 스웨거 예시: 응답이 생성된 ID (number)
-  const res = await axios.post<number>('/게시물', body);
+  const res = await api.post<number>('/게시물', body);
   return res.data;
 }
 
 export async function updatePost(id: number, body: { title: string; content: string; categoryId: number }) {
-  await axios.put(`/게시물/${id}`, body);
+  await api.put(`/게시물/${id}`, body);
 }
 
 export async function deletePost(id: number) {
-  await axios.delete(`/게시물/${id}`);
+  await api.delete(`/게시물/${id}`);
 }

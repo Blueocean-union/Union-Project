@@ -1,29 +1,36 @@
 import React from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { View, Text, Button, StyleSheet } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { QuestionStackParamList } from './MainTabs';
 
-const questions = [
-  { id: 'q1', title: '자료구조 스택 출력 문제', preview: '스택의 출력 순서가 왜 이렇게 되는지 모르겠어요', date: '2024.10.13' },
-  { id: 'q2', title: 'IEEE754 부동소수점 질문', preview: '표현 방식이 이해 안 돼요', date: '2023.10.18' },
-];
+type Props = NativeStackScreenProps<QuestionStackParamList, 'QuestionList'>;
 
-export default function QuestionListScreen({ route, navigation }) {
-  const { category } = route.params;
+export default function QuestionListScreen({ route, navigation }: Props) {
+  // MainTabs 타입에 따라 두 형태 모두 허용
+  const { categoryId, category } = route.params ?? {};
+
   return (
-    <View style={{ flex: 1, padding: 24 }}>
-      <Text style={{ fontSize: 28, fontWeight: 'bold' }}>{category.title} 질문방</Text>
-      <FlatList
-        data={questions}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={{ padding: 16, borderBottomColor: '#ccc', borderBottomWidth: 1 }}
-            onPress={() => navigation.navigate('QuestionDetail', { question: item })}
-          >
-            <Text style={{ fontWeight: 'bold' }}>{item.title}</Text>
-            <Text>{item.preview}</Text>
-            <Text style={{ color: '#999', fontSize: 12 }}>{item.date}</Text>
-          </TouchableOpacity>
-        )}
+    <View style={styles.container}>
+      <Text style={styles.title}>질문 목록</Text>
+
+      <View style={styles.info}>
+        <Text style={styles.label}>필터</Text>
+        <Text>
+          categoryId: {categoryId ?? '-'} / category: {category ? JSON.stringify(category) : '-'}
+        </Text>
+      </View>
+
+      <Button
+        title="이 카테고리로 질문 작성"
+        onPress={() => navigation.navigate('QuestionCreate', { categoryId, category })}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
+  info: { paddingVertical: 8, gap: 6, marginBottom: 12 },
+  label: { fontWeight: '600' },
+});

@@ -11,7 +11,7 @@ import {
     View,
 } from 'react-native';
 
-const UnionSignupScreen = ({ navigation }: any) => {
+const SigninScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -281,4 +281,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UnionSignupScreen;
+export default SigninScreen;

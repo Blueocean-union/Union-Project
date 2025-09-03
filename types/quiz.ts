@@ -7,6 +7,14 @@ export type QuizItem = {
   correctIndex?: number; // 0-index
 };
 
+export type QuizQuestion = {
+  id: string;
+  questionText: string;
+  options: Array<{ id: string; text: string }>;
+  correctOptionId: string;
+  explanation?: string;
+};
+
 export type QuizGenerateResponse = {
   quizzes: Array<
     {
