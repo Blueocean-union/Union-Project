@@ -15,11 +15,15 @@ import {
 import axios from 'axios';
 
 interface SearchResult {
+  kind: string;
   title: string;
+  htmlTitle: string;
   link: string;
-  description: string;
-  source: string;
-  date: string;
+  displayLink: string;
+  snippet: string;
+  htmlSnippet: string;
+  cacheId?: string;
+  formattedUrl: string;
 }
 
 interface SearchTab {
@@ -142,7 +146,7 @@ export default function SearchScreen() {
     );
   };
 
-  const searchNaver = async (query: string, tabId: string) => {
+  const searchGoogle = async (query: string, tabId: string) => {
     if (!query.trim()) return;
 
     setSearchTabs(tabs =>
@@ -158,10 +162,16 @@ export default function SearchScreen() {
       const token = await AsyncStorage.getItem('accessToken');
       console.log('토큰 확인:', token ? '있음' : '없음');
       
-      const response = await axios.get('http://52.78.209.115:8080/api/search/naver', {
+      const response = await axios.get('http://52.78.209.115:8080/api/search', {
         params: {
-          query: query.trim(),
-          target: 'blog'
+          req: {
+            q: query.trim(),
+            start: 1,
+            num: 10,
+            gl: 'KR',
+            lr: 'lang_ko',
+            safe: 'off'
+          }
         },
         headers: {
           'Authorization': token ? `Bearer ${token}` : undefined,
@@ -171,17 +181,20 @@ export default function SearchScreen() {
 
       console.log('검색 응답:', response.data);
       
+      // Google API 응답에서 items 배열 추출
+      const searchResults = response.data?.items || [];
+      
       // 디버깅: 원본 데이터 확인
-      if (response.data && response.data.length > 0) {
-        console.log('첫 번째 결과 원본:', response.data[0]);
-        console.log('제목 원본:', response.data[0].title);
-        console.log('제목 정리 후:', cleanText(response.data[0].title));
+      if (searchResults.length > 0) {
+        console.log('첫 번째 결과 원본:', searchResults[0]);
+        console.log('제목 원본:', searchResults[0].title);
+        console.log('제목 정리 후:', cleanText(searchResults[0].title));
       }
 
       setSearchTabs(tabs =>
         tabs.map(tab =>
           tab.id === tabId 
-            ? { ...tab, results: response.data, isLoading: false }
+            ? { ...tab, results: searchResults, isLoading: false }
             : tab
         )
       );
@@ -201,7 +214,7 @@ export default function SearchScreen() {
   const handleMainSearch = () => {
     if (mainQuery.trim()) {
       updateTabQuery(searchTabs[activeTabIndex].id, mainQuery);
-      searchNaver(mainQuery, searchTabs[activeTabIndex].id);
+      searchGoogle(mainQuery, searchTabs[activeTabIndex].id);
     }
   };
 
@@ -279,24 +292,12 @@ export default function SearchScreen() {
             >
               <View style={styles.resultHeader}>
                 <View style={styles.sourceContainer}>
-                  {result.source === 'Google' && (
-                    <View style={styles.googleLogo}>
-                      <Text style={styles.googleText}>G</Text>
-                    </View>
-                  )}
-                  {result.source === 'Tistory' && (
-                    <View style={styles.tistoryLogo}>
-                      <Ionicons name="ellipse" size={16} color="#FF5722" />
-                    </View>
-                  )}
-                  {result.source === 'Naver' && (
-                    <View style={styles.naverLogo}>
-                      <Text style={styles.naverText}>N</Text>
-                    </View>
-                  )}
-                  <Text style={styles.sourceText}>{result.source}</Text>
+                  <View style={styles.googleLogo}>
+                    <Text style={styles.googleText}>G</Text>
+                  </View>
+                  <Text style={styles.sourceText}>Google</Text>
                 </View>
-                <Text style={styles.resultDate}>{result.date}</Text>
+                <Text style={styles.resultDate}>{result.displayLink}</Text>
               </View>
               
               <Text style={styles.resultTitle} numberOfLines={2}>
@@ -304,11 +305,11 @@ export default function SearchScreen() {
               </Text>
               
               <Text style={styles.resultDescription} numberOfLines={3}>
-                {cleanText(result.description)}
+                {cleanText(result.snippet)}
               </Text>
               
               <Text style={styles.resultLink} numberOfLines={1}>
-                {result.link}
+                {result.formattedUrl}
               </Text>
             </TouchableOpacity>
           ))

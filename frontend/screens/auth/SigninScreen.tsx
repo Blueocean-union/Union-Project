@@ -42,7 +42,7 @@ const SigninScreen = ({ navigation }: any) => {
       };
 
       // API 호출
-      const response = await fetch('http://52.78.209.115:8000/auth/signup', {
+      const response = await fetch('http://52.78.209.115:8080/auth/signup', {
         method: 'POST',
         headers: {
           'Accept': '*/*',
@@ -99,7 +99,7 @@ const SigninScreen = ({ navigation }: any) => {
         <Text style={styles.headerTitle}>Union 회원가입</Text>
         <TouchableOpacity 
           style={styles.closeButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('Login')}
         >
           <Ionicons name="close" size={40} color="#666" />
         </TouchableOpacity>
