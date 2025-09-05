@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 
 import CalendarAppScreen from './schedule/CalendarAppScreen';
-import HomeScreen from './home/HomeScreen';
+import MainScreen from './home/MainScreen';
 import LogoutScreen from './auth/LogoutScreen';
 import QuestionCategoryScreen from './question/QuestionCategoryScreen';
 import QuestionDetailScreen from './question/QuestionDetailScreen';
@@ -70,24 +70,13 @@ function SearchStack() {
   );
 }
 
-// 홈 스택 (로그아웃 버튼 포함)
+// 홈 스택 (MainScreen 사용하도록 수정)
 function HomeStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="HomeMain"
-        component={HomeScreen}
-        options={({ navigation }: any) => ({
-          title: '홈',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Logout')}
-              style={{ marginRight: 16 }}
-            >
-              <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>로그아웃</Text>
-            </TouchableOpacity>
-          ),
-        })}
+        component={MainScreen} // HomeScreen 대신 MainScreen 사용
       />
       <Stack.Screen name="Logout" component={LogoutScreen} options={{ headerShown: false }} />
     </Stack.Navigator>

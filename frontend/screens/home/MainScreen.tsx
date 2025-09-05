@@ -39,7 +39,7 @@ const getSubjects = async (): Promise<Subject[]> => {
       progress: progressData[index % progressData.length] || 0
     }));
   } catch (error) {
-    console.error('⚠ 과목 목록 조회 실패:', error);
+    console.error('과목 목록 조회 실패:', error);
     return [];
   }
 };
@@ -52,7 +52,7 @@ const getTodaySchedules = async (): Promise<Schedule[]> => {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   } catch (error) {
-    console.error('⚠ 오늘의 일정 조회 실패:', error);
+    console.error('오늘의 일정 조회 실패:', error);
     return [];
   }
 };
@@ -72,13 +72,13 @@ const CalendarDay = ({ day, isToday, isSelected, isWeekend, onPress }: {
   day: number; isToday: boolean; isSelected: boolean; isWeekend: boolean; onPress: () => void;
 }) => (
   <TouchableOpacity 
-    style={[styles.calendarDay, (isToday || isSelected) && styles.selectedDay]}
+    style={[styles.calendarDay, isSelected && styles.selectedDay]}
     onPress={onPress}
   >
     <Text style={[
       styles.calendarDayText,
-      (isToday || isSelected) && styles.selectedText,
-      isWeekend && !isToday && !isSelected && styles.weekendText
+      isSelected && styles.selectedText,
+      isWeekend && !isSelected && styles.weekendText
     ]}>
       {day}
     </Text>
@@ -116,8 +116,10 @@ const TaskSection = ({ title, icon, schedules, onToggle, loading }: {
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 4, 9));
-  const [selectedDate, setSelectedDate] = useState<number | null>(9);
+  // 실제 오늘 날짜로 초기화
+  const [currentDate, setCurrentDate] = useState(new Date());
+  // 초기값을 오늘 날짜로 설정하거나, 선택된 날짜가 없으면 null
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,7 +202,8 @@ const MainScreen = () => {
             const dayOfWeek = (firstDayOfMonth + index) % 7;
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isToday = isCurrentMonth && date === today.getDate();
-            const isSelected = date === selectedDate;
+            // 선택된 날짜가 있으면 그것을, 없으면 오늘 날짜를 선택된 것처럼 표시
+            const isSelected = selectedDate ? date === selectedDate : isToday;
             
             return (
               <CalendarDay
@@ -303,50 +306,178 @@ const MainScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, 
+  container: { 
+    flex: 1, 
     backgroundColor: '#EEEFF6', 
-    paddingBottom: 80 },
-  header: { flexDirection: 'row', 
+    paddingBottom: 80 
+  },
+  header: { 
+    flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
     paddingHorizontal: 70, 
     paddingVertical: 10, 
-    backgroundColor: '#EEEFF6' },
-  headerTitle: { fontSize: 64, 
+    backgroundColor: '#EEEFF6' 
+  },
+  headerTitle: { 
+    fontSize: 64, 
     fontWeight: 'bold', 
-    color: '#3B4B87' },
-  headerRight: { flexDirection: 'row', 
+    color: '#3B4B87' 
+  },
+  headerRight: { 
+    flexDirection: 'row', 
     alignItems: 'center', 
-    gap: 8 },
-  headerUser: { fontSize: 32, 
+    gap: 8 
+  },
+  headerUser: { 
+    fontSize: 32, 
     fontWeight: 'bold', 
-    color: '#3B4B87' },
-  taskAndCalendarSection: { paddingHorizontal: 70, marginBottom: 5, flexDirection: 'row', gap: 35 },
-  taskContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, flexDirection: 'row', flex: 3, height: 280 },
-  taskLeftColumn: { flex: 1, paddingLeft: 15, paddingRight: 15 },
-  taskRightColumn: { flex: 1, paddingLeft: 15 },
-  verticalDivider: { width: 1, backgroundColor: '#E5E7EB', marginHorizontal: 10 },
-  taskHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 8, marginBottom: 4 },
-  taskHeaderText: { fontSize: 20, color: '#CBCDDB', fontWeight: '600' },
-  taskItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 8 },
-  taskText: { fontSize: 16, color: '#CBCDDB', fontWeight: '500' },
-  taskLoadingContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 8 },
-  taskLoadingText: { fontSize: 14, color: '#9CA3AF' },
-  calendar: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, flex: 1, height: 280 },
-  calendarNavigation: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 8 },
-  calendarTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', textAlign: 'center' },
-  calendarHeader: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, paddingHorizontal: 8 },
-  dayHeader: { fontSize: 15, color: '#6B7280', letterSpacing: 0.1, fontWeight: '600', width: 24, textAlign: 'center' },
-  weekendHeader: { color: '#EF4444' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 },
-  calendarDay: { width: '14.28%', height: 26, alignItems: 'center', justifyContent: 'center', marginVertical: 2 },
-  calendarDayText: { fontSize: 15, letterSpacing: 0.1, color: '#1F2937' },
-  selectedDay: { backgroundColor: '#EF4444', borderRadius: 14 },
-  selectedText: { color: '#FFFFFF', fontWeight: 'bold' },
-  weekendText: { color: '#EF4444' },
-  progressSection: { paddingVertical: 20, paddingHorizontal: 70 },
-  progressBox: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, minHeight: 200 },
-  progressContainer: { alignItems: 'center', marginHorizontal: 5, justifyContent: 'center' },
+    color: '#3B4B87' 
+  },
+  taskAndCalendarSection: { 
+    paddingHorizontal: 70, 
+    marginBottom: 5, 
+    flexDirection: 'row', 
+    gap: 35 
+  },
+  taskContainer: { 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 12, 
+    padding: 16, 
+    flexDirection: 'row', 
+    flex: 3, 
+    height: 280 
+  },
+  taskLeftColumn: { 
+    flex: 1, 
+    paddingLeft: 15, 
+    paddingRight: 15 
+  },
+  taskRightColumn: { 
+    flex: 1, 
+    paddingLeft: 15 
+  },
+  verticalDivider: { 
+    width: 1, 
+    backgroundColor: '#E5E7EB', 
+    marginHorizontal: 10 
+  },
+  taskHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 14, 
+    gap: 8, 
+    marginBottom: 4 
+  },
+  taskHeaderText: { 
+    fontSize: 20, 
+    color: '#CBCDDB', 
+    fontWeight: '600' 
+  },
+  taskItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 6, 
+    gap: 8 
+  },
+  taskText: { 
+    fontSize: 16, 
+    color: '#CBCDDB', 
+    fontWeight: '500' 
+  },
+  taskLoadingContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 10, 
+    gap: 8 
+  },
+  taskLoadingText: { 
+    fontSize: 14, 
+    color: '#9CA3AF' 
+  },
+  calendar: { 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 12, 
+    padding: 20, 
+    flex: 1, 
+    height: 280 
+  },
+  calendarNavigation: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 8, 
+    paddingHorizontal: 8 
+  },
+  calendarTitle: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#1F2937', 
+    textAlign: 'center' 
+  },
+  calendarHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    paddingVertical: 10, 
+    paddingHorizontal: 8 
+  },
+  dayHeader: { 
+    fontSize: 15, 
+    color: '#6B7280', 
+    letterSpacing: 0.1, 
+    fontWeight: '600', 
+    width: 24, 
+    textAlign: 'center' 
+  },
+  weekendHeader: { 
+    color: '#EF4444' 
+  },
+  calendarGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    paddingHorizontal: 8 
+  },
+  calendarDay: { 
+    width: '14.28%', 
+    height: 26, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginVertical: 2 
+  },
+  calendarDayText: { 
+    fontSize: 15, 
+    letterSpacing: 0.1, 
+    color: '#1F2937' 
+  },
+  selectedDay: { 
+    backgroundColor: '#EF4444', 
+    borderRadius: 14 
+  },
+  selectedText: { 
+    color: '#FFFFFF', 
+    fontWeight: 'bold' 
+  },
+  weekendText: { 
+    color: '#EF4444' 
+  },
+  progressSection: { 
+    paddingVertical: 20, 
+    paddingHorizontal: 70 
+  },
+  progressBox: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    alignItems: 'center', 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 12, 
+    padding: 20, 
+    minHeight: 200 
+  },
+  progressContainer: { 
+    alignItems: 'center', 
+    marginHorizontal: 5, 
+    justifyContent: 'center' 
+  },
   circularProgress: { 
     backgroundColor: '#FFFFFF', 
     borderRadius: 70, 
@@ -360,13 +491,45 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  progressPercentage: { fontSize: 24, fontWeight: 'bold', color: '#3B4B87', marginBottom: 4 },
-  progressSubjectName: { fontSize: 16, fontWeight: 'bold', color: '#3B4B87', textAlign: 'center', lineHeight: 18 },
-  loadingText: { fontSize: 16, color: '#6B7280', marginLeft: 10 },
-  noDataText: { fontSize: 18, color: '#6B7280', textAlign: 'center', marginBottom: 10 },
-  refreshButton: { backgroundColor: '#3B4B87', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
-  refreshButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  activeNavText: { color: '#3B4B87', fontWeight: '600' },
+  progressPercentage: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#3B4B87', 
+    marginBottom: 4 
+  },
+  progressSubjectName: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#3B4B87', 
+    textAlign: 'center', 
+    lineHeight: 18 
+  },
+  loadingText: { 
+    fontSize: 16, 
+    color: '#6B7280', 
+    marginLeft: 10 
+  },
+  noDataText: { 
+    fontSize: 18, 
+    color: '#6B7280', 
+    textAlign: 'center', 
+    marginBottom: 10 
+  },
+  refreshButton: { 
+    backgroundColor: '#3B4B87', 
+    paddingHorizontal: 20, 
+    paddingVertical: 8, 
+    borderRadius: 8 
+  },
+  refreshButtonText: { 
+    color: '#FFFFFF', 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
+  activeNavText: { 
+    color: '#3B4B87', 
+    fontWeight: '600' 
+  },
 });
 
 export default MainScreen;

@@ -32,10 +32,12 @@ export default function Login({ navigation }: any) {
     setLoading(true);
 
     try {
+      console.log('로그인 시도:', { email: username, password: password });
+      
       const response = await fetch('http://52.78.209.115:8080/auth/signin', {
         method: 'POST',
         headers: {
-          'Accept': '*/*',
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -44,14 +46,32 @@ export default function Login({ navigation }: any) {
         }),
       });
 
-      const data = await response.json();
-
+      console.log('응답 상태:', response.status);
+      
       if (response.ok) {
-        // 로그인 성공
+        const responseText = await response.text();
+        console.log('응답 본문:', responseText);
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('JSON 파싱 오류:', parseError);
+          Alert.alert('오류', '서버 응답을 처리할 수 없습니다.');
+          return;
+        }
+
         console.log('로그인 성공:', data);
         
-        // AccessToken과 RefreshToken 저장
-        const { accessToken, refreshToken } = data;
+        // API 응답에서 토큰 추출
+        const accessToken = data.accessToken;
+        const refreshToken = data.refreshToken;
+        
+        if (!accessToken) {
+          console.error('토큰이 응답에 없습니다:', data);
+          Alert.alert('오류', '인증 토큰을 받지 못했습니다.');
+          return;
+        }
         
         try {
           // 토큰을 AsyncStorage에 저장
@@ -59,35 +79,50 @@ export default function Login({ navigation }: any) {
           if (refreshToken) {
             await AsyncStorage.setItem('refreshToken', refreshToken);
           }
-          console.log('토큰 저장 완료:', { accessToken, refreshToken });
           
-          // 메인 화면으로 이동 (Auth에서 Main으로)
-          Alert.alert('성공', '로그인되었습니다.', [
-            {
-              text: '확인',
-              onPress: () => {
-                console.log('메인 화면으로 이동 시도...');
-                // CommonActions를 사용하여 Main으로 이동
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'Main' }],
-                  })
-                );
-              },
-            },
-          ]);
+          console.log('토큰 저장 완료:', { accessToken: accessToken.substring(0, 20) + '...', refreshToken: refreshToken ? refreshToken.substring(0, 20) + '...' : 'N/A' });
+          
+          // 저장된 토큰 확인
+          const savedAccessToken = await AsyncStorage.getItem('accessToken');
+          console.log('저장된 토큰 확인:', savedAccessToken ? '토큰 저장됨' : '토큰 저장 실패');
+          
+          // 네비게이션 리셋으로 메인 화면으로 이동
+          console.log('메인 화면으로 이동 시도...');
+          
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Main' }],
+            })
+          );
+          
+          console.log('네비게이션 dispatch 완료');
+          
         } catch (storageError) {
           console.error('토큰 저장 실패:', storageError);
           Alert.alert('오류', '토큰 저장에 실패했습니다.');
         }
       } else {
         // 로그인 실패
-        Alert.alert('로그인 실패', data.message || '아이디 또는 비밀번호가 올바르지 않습니다.');
+        const errorText = await response.text();
+        console.log('로그인 실패:', response.status, errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: '로그인에 실패했습니다.' };
+        }
+        
+        Alert.alert('로그인 실패', errorData.message || errorData.error || '아이디 또는 비밀번호가 올바르지 않습니다.');
       }
     } catch (error) {
       console.error('로그인 에러:', error);
-      Alert.alert('오류', '네트워크 연결을 확인해주세요.');
+      if (error instanceof TypeError && error.message.includes('Network request failed')) {
+        Alert.alert('오류', '서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+      } else {
+        Alert.alert('오류', '로그인 중 오류가 발생했습니다.');
+      }
     } finally {
       setLoading(false);
     }
