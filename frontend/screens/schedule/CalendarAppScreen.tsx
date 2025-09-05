@@ -1,7 +1,8 @@
+// screens/schedule/CalendarAppScreen.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -9,119 +10,182 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
+  Platform,
 } from 'react-native';
 import 'react-native-url-polyfill/auto';
-import { CommonStyles } from '../styles/CommonStyles';
+import { CommonStyles } from '../../styles/CommonStyles';
+
+type RawSchedule = {
+  id: number | string;
+  title: string;
+  description?: string | null;
+  category?: string | null;     // '과제' | '시험' | '발표' | '기타' | 기타
+  startDate: string;            // ISO string
+  endDate: string;              // ISO string
+};
+
+type DaySchedule = RawSchedule & {
+  color: string;
+  textColor: string;
+  iconColor: string;
+};
+
+type SchedulesByDayKey = Record<string, DaySchedule[]>; // key = YYYY-MM-DD
+
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  (process.env as any).REACT_NATIVE_API_BASE_URL ||
+  (Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080');
+
+const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const weekDays = ['일','월','화','수','목','금','토'];
+
+const categoryColorMap: Record<string, { bg: string; text: string; icon: string }> = {
+  '과제': { bg: '#E8F5E8', text: '#2D5D2D', icon: '#4CAF50' },
+  '시험': { bg: '#FFF3E0', text: '#EF6C00', icon: '#FB8C00' },
+  '발표': { bg: '#E3F2FD', text: '#1565C0', icon: '#2196F3' },
+  '기타': { bg: '#F5F5F5', text: '#616161', icon: '#9E9E9E' },
+};
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(n, max));
+}
+
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+function dayKey(y: number, m0: number, d: number) {
+  // m0: 0-based month
+  return `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+}
+
+function daysInMonth(y: number, m0: number) {
+  return new Date(y, m0 + 1, 0).getDate();
+}
+
+function buildMonthMatrix(y: number, m0: number): (number | null)[] {
+  const firstDow = new Date(y, m0, 1).getDay();
+  const dim = daysInMonth(y, m0);
+  const arr: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) arr.push(null);
+  for (let d = 1; d <= dim; d++) arr.push(d);
+  return arr;
+}
 
 export default function CalendarAppScreen() {
-  const today = new Date();
-
-  const [selectedDate, setSelectedDate] = useState(today.getDate());
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-based
+  const today = useMemo(() => new Date(), []);
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-based
+  const [selectedDate, setSelectedDate] = useState(today.getDate());
+  const [schedules, setSchedules] = useState<SchedulesByDayKey>({});
+  const [loading, setLoading] = useState(false);
 
-  const [schedules, setSchedules] = useState<{ [key: string]: any[] }>({});
+  const monthDays = useMemo(
+    () => buildMonthMatrix(currentYear, currentMonth),
+    [currentYear, currentMonth]
+  );
 
-  const months = [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월'
-  ];
-  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-
-  const getDaysInMonth = (month: number, year: number) => {
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let day = 1; day <= daysInMonth; day++) days.push(day);
-    return days;
-  };
-  const days = getDaysInMonth(currentMonth, currentYear);
-
+  // 현재 월/년 바뀔 때 selectedDate 유효 범위로 보정
   useEffect(() => {
-    fetchSchedulesByMonth(currentYear, currentMonth + 1);
+    const dim = daysInMonth(currentYear, currentMonth);
+    setSelectedDate((d) => clamp(d, 1, dim));
   }, [currentYear, currentMonth]);
 
-  const fetchSchedulesByMonth = async (year: number, month: number) => {
+  const getDateSchedules = useCallback(
+    (date: number) => schedules[dayKey(currentYear, currentMonth, date)] || [],
+    [schedules, currentYear, currentMonth]
+  );
+
+  const hasSchedule = useCallback(
+    (date: number) => getDateSchedules(date).length > 0,
+    [getDateSchedules]
+  );
+
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
+    setSchedules({}); // 월 이동 시 깔끔히 비우고 새로 불러오기
+    setSelectedDate(1); // 월 이동 시 1일로 이동 (원하면 유지해도 됨)
+    if (direction === 'prev') {
+      setCurrentMonth((m) => (m === 0 ? 11 : m - 1));
+      setCurrentYear((y) => (currentMonth === 0 ? y - 1 : y));
+    } else {
+      setCurrentMonth((m) => (m === 11 ? 0 : m + 1));
+      setCurrentYear((y) => (currentMonth === 11 ? y + 1 : y));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth]);
+
+  const colorize = (item: RawSchedule): DaySchedule => {
+    const cat = (item.category || '기타').trim();
+    const map = categoryColorMap[cat] || { bg: '#EEE', text: '#000', icon: '#000' };
+    return { ...item, color: map.bg, textColor: map.text, iconColor: map.icon };
+    // iconColor는 현재 UI에서 사용 안하지만 남겨둠
+  };
+
+  const fetchSchedulesByMonth = useCallback(async (y: number, m0: number) => {
+    // 서버 API는 1-based month를 받음
+    const month1 = m0 + 1;
+    setLoading(true);
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const res = await axios.get(
-        `http://52.78.209.115:8080/api/schedules/month?year=${year}&month=${month}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      if (!token) {
+        setSchedules({});
+        return;
+      }
+      const { data } = await axios.get<RawSchedule[]>(
+        `${API_BASE_URL}/api/schedules/month?year=${y}&month=${month1}`,
+        { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
       );
 
-      const grouped: { [key: string]: any[] } = {};
-      res.data.forEach((item: any) => {
-        const start = new Date(item.startDate);
-        const end = new Date(item.endDate);
-        const scheduleStart = new Date(start);
-        const scheduleEnd = new Date(end);
+      // 일자별로 확장/분해 (범위 일정은 모든 날짜에 분배)
+      const grouped: SchedulesByDayKey = {};
+      for (const raw of data || []) {
+        // 문자열 파싱 → Date
+        const start = new Date(raw.startDate);
+        const end = new Date(raw.endDate);
 
-        while (scheduleStart <= scheduleEnd) {
-          const d = scheduleStart.getDate();
-          const m = scheduleStart.getMonth();
-          const key = `${m}-${d}`;
-          if (!grouped[key]) grouped[key] = [];
-          grouped[key].push({
-            ...item,
-            color: categoryColorMap[item.category]?.bg || '#EEE',
-            textColor: categoryColorMap[item.category]?.text || '#000',
-            iconColor: categoryColorMap[item.category]?.icon || '#000'
-          });
-          scheduleStart.setDate(scheduleStart.getDate() + 1);
+        // 안전장치: start > end 인 경우 swap
+        const s = isNaN(start.getTime()) ? new Date() : start;
+        const e = isNaN(end.getTime()) ? s : end;
+        const from = s <= e ? s : e;
+        const to = s <= e ? e : s;
+
+        const walker = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        const until = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+
+        const colored = colorize(raw);
+
+        while (walker.getTime() <= until.getTime()) {
+          const k = dayKey(walker.getFullYear(), walker.getMonth(), walker.getDate());
+          if (!grouped[k]) grouped[k] = [];
+          grouped[k].push(colored);
+
+          walker.setDate(walker.getDate() + 1);
         }
-      });
+      }
+
       setSchedules(grouped);
-    } catch (err) {
-      console.error('월간 일정 불러오기 실패:', err);
+    } catch (err: any) {
+      console.error('월간 일정 불러오기 실패:', err?.message || err);
+      Alert.alert('오류', '일정을 불러오는 중 문제가 발생했어요.');
+      setSchedules({});
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const categoryColorMap: Record<string, { bg: string, text: string, icon: string }> = {
-    '과제': { bg: '#E8F5E8', text: '#2D5D2D', icon: '#4CAF50' },
-    '시험': { bg: '#FFF3E0', text: '#EF6C00', icon: '#FB8C00' },
-    '발표': { bg: '#E3F2FD', text: '#1565C0', icon: '#2196F3' },
-    '기타': { bg: '#F5F5F5', text: '#616161', icon: '#9E9E9E' }
-  };
-
-  const getDateSchedules = (date: number) => {
-    const key = `${currentMonth}-${date}`;
-    return schedules[key] || [];
-  };
-
-  const hasSchedule = (date: number) => {
-    const key = `${currentMonth}-${date}`;
-    return schedules[key] && schedules[key].length > 0;
-  };
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    if (direction === 'prev') {
-      if (currentMonth === 0) {
-        setCurrentMonth(11);
-        setCurrentYear(currentYear - 1);
-      } else {
-        setCurrentMonth(currentMonth - 1);
-      }
-    } else {
-      if (currentMonth === 11) {
-        setCurrentMonth(0);
-        setCurrentYear(currentYear + 1);
-      } else {
-        setCurrentMonth(currentMonth + 1);
-      }
-    }
-  };
+  // 월 변경 시 일정 로드
+  useEffect(() => {
+    fetchSchedulesByMonth(currentYear, currentMonth);
+  }, [currentYear, currentMonth, fetchSchedulesByMonth]);
 
   return (
     <SafeAreaView style={CommonStyles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       {/* 헤더 */}
       <View style={CommonStyles.header}>
-        <TouchableOpacity style={CommonStyles.backButton}>
+        <TouchableOpacity style={CommonStyles.backButton} disabled>
           <Ionicons name="chevron-back" size={35} color="#1A346F" />
         </TouchableOpacity>
         <Text style={CommonStyles.headerTitle}>일정</Text>
@@ -143,13 +207,15 @@ export default function CalendarAppScreen() {
           </View>
 
           <View style={CommonStyles.weekDaysContainer}>
-            {weekDays.map((day, index) => (
-              <View key={index} style={CommonStyles.weekDayCell}>
-                <Text style={[
-                  CommonStyles.weekDayText,
-                  index === 0 && CommonStyles.sundayText,
-                  index === 6 && CommonStyles.saturdayText
-                ]}>
+            {weekDays.map((day, idx) => (
+              <View key={day} style={CommonStyles.weekDayCell}>
+                <Text
+                  style={[
+                    CommonStyles.weekDayText,
+                    idx === 0 && CommonStyles.sundayText,
+                    idx === 6 && CommonStyles.saturdayText,
+                  ]}
+                >
                   {day}
                 </Text>
               </View>
@@ -158,95 +224,104 @@ export default function CalendarAppScreen() {
 
           <ScrollView style={CommonStyles.calendarScrollView}>
             <View style={CommonStyles.calendarGrid}>
-              {days.map((day, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    CommonStyles.dateCell,
-                    day === selectedDate && CommonStyles.selectedDateCell
-                  ]}
-                  onPress={() => day && setSelectedDate(day)}
-                  disabled={!day}
-                >
-                  {day && (
-                    <View style={CommonStyles.dateCellContent}>
-                      <View style={day === selectedDate ? CommonStyles.selectedDateBackground : null}>
-                        <Text style={[
-                          CommonStyles.dateText,
-                          day === selectedDate && CommonStyles.selectedDateText,
-                          index % 7 === 0 && day !== selectedDate && CommonStyles.sundayText,
-                          index % 7 === 6 && day !== selectedDate && CommonStyles.saturdayText
-                        ]}>
-                          {day}
-                        </Text>
-                      </View>
-                      {hasSchedule(day) && (
-                        <View style={CommonStyles.scheduleBoxContainer}>
-                          {getDateSchedules(day).slice(0, 3).map((schedule, idx) => (
-                            <View key={idx} style={[
-                              CommonStyles.scheduleBox,
-                              { backgroundColor: schedule.color }
-                            ]}>
-                              <Text style={[
-                                CommonStyles.scheduleBoxText,
-                                { color: schedule.textColor }
-                              ]} numberOfLines={1}>
-                                {schedule.title}
-                              </Text>
-                            </View>
-                          ))}
-                          {getDateSchedules(day).length > 3 && (
-                            <View style={CommonStyles.moreScheduleBox}>
-                              <Text style={CommonStyles.moreScheduleText}>
-                                +{getDateSchedules(day).length - 3}개
-                              </Text>
-                            </View>
-                          )}
+              {monthDays.map((d, idx) => {
+                const isSelected = d === selectedDate;
+                const isSunday = idx % 7 === 0;
+                const isSaturday = idx % 7 === 6;
+                return (
+                  <TouchableOpacity
+                    key={`${idx}-${d ?? 'x'}`}
+                    style={[
+                      CommonStyles.dateCell,
+                      isSelected && CommonStyles.selectedDateCell,
+                    ]}
+                    onPress={() => d && setSelectedDate(d)}
+                    disabled={!d}
+                  >
+                    {d && (
+                      <View style={CommonStyles.dateCellContent}>
+                        <View style={isSelected ? CommonStyles.selectedDateBackground : null}>
+                          <Text
+                            style={[
+                              CommonStyles.dateText,
+                              isSelected && CommonStyles.selectedDateText,
+                              !isSelected && isSunday && CommonStyles.sundayText,
+                              !isSelected && isSaturday && CommonStyles.saturdayText,
+                            ]}
+                          >
+                            {d}
+                          </Text>
                         </View>
-                      )}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+
+                        {/* 일정 박스 */}
+                        {!!d && hasSchedule(d) && (
+                          <View style={CommonStyles.scheduleBoxContainer}>
+                            {getDateSchedules(d).slice(0, 3).map((sch, i) => (
+                              <View
+                                key={`${sch.id}-${i}`}
+                                style={[CommonStyles.scheduleBox, { backgroundColor: sch.color }]}
+                              >
+                                <Text
+                                  numberOfLines={1}
+                                  style={[CommonStyles.scheduleBoxText, { color: sch.textColor }]}
+                                >
+                                  {sch.title}
+                                </Text>
+                              </View>
+                            ))}
+                            {getDateSchedules(d).length > 3 && (
+                              <View style={CommonStyles.moreScheduleBox}>
+                                <Text style={CommonStyles.moreScheduleText}>
+                                  +{getDateSchedules(d).length - 3}개
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
 
-        {/* 오른쪽 일정 */}
+        {/* 오른쪽 일정 상세 리스트 */}
         <View style={CommonStyles.scheduleContainer}>
           <Text style={CommonStyles.scheduleTitle}>
             {currentMonth + 1}월 {selectedDate}일 일정
           </Text>
+
           <ScrollView style={CommonStyles.scheduleList}>
-            {getDateSchedules(selectedDate).map((schedule: any) => (
-              <View key={schedule.id} style={[
-                CommonStyles.scheduleItem,
-                { backgroundColor: schedule.color }
-              ]}>
+            {getDateSchedules(selectedDate).map((schedule) => (
+              <View
+                key={schedule.id}
+                style={[CommonStyles.scheduleItem, { backgroundColor: schedule.color }]}
+              >
                 <View style={CommonStyles.scheduleContent}>
-                  <Text style={[
-                    CommonStyles.scheduleItemTitle,
-                    { color: schedule.textColor }
-                  ]}>
+                  <Text style={[CommonStyles.scheduleItemTitle, { color: schedule.textColor }]}>
                     {schedule.title}
                   </Text>
-                  <Text style={[
-                    CommonStyles.scheduleTime,
-                    { color: schedule.textColor }
-                  ]}>
+                  <Text style={[CommonStyles.scheduleTime, { color: schedule.textColor }]}>
                     {schedule.startDate} ~ {schedule.endDate}
                   </Text>
-                  {schedule.description && (
-                    <Text style={{ color: schedule.textColor }}>
-                      {schedule.description}
-                    </Text>
+                  {!!schedule.description && (
+                    <Text style={{ color: schedule.textColor }}>{schedule.description}</Text>
                   )}
                 </View>
               </View>
             ))}
-            {getDateSchedules(selectedDate).length === 0 && (
+
+            {getDateSchedules(selectedDate).length === 0 && !loading && (
               <View style={CommonStyles.noScheduleContainer}>
                 <Text style={CommonStyles.noScheduleText}>일정이 없습니다.</Text>
+              </View>
+            )}
+
+            {loading && (
+              <View style={CommonStyles.noScheduleContainer}>
+                <Text style={CommonStyles.noScheduleText}>불러오는 중…</Text>
               </View>
             )}
           </ScrollView>
