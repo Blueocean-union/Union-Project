@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // import Svg, { Circle } from 'react-native-svg'; // SVG 패키지가 없어서 주석 처리
 
 interface Subject {
@@ -24,7 +26,35 @@ interface Schedule {
   createdAt: string;
 }
 
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  grade: string;
+  major: string;
+  university: string;
+  createdAt: string;
+  lastLoginAt: string;
+}
+
 const API_BASE = 'http://52.78.209.115:8080/api';
+
+const getUserInfo = async (token: string): Promise<User | null> => {
+  try {
+    const response = await axios.get('http://52.78.209.115:8080/users/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('API 응답 전체:', response); // 전체 응답 확인
+    console.log('API 응답 데이터:', response.data); // 데이터만 확인
+    return response.data;
+  } catch (error) {
+    console.error('사용자 정보 조회 실패:', error);
+    return null;
+  }
+};
 
 const getSubjects = async (): Promise<Subject[]> => {
   try {
@@ -124,12 +154,15 @@ const MainScreen = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [schedulesLoading, setSchedulesLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
 
   const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
   useEffect(() => {
     loadSubjects();
     loadSchedules();
+    loadUserInfo();
   }, []);
 
   const loadSubjects = async () => {
@@ -144,6 +177,27 @@ const MainScreen = () => {
     const scheduleData = await getTodaySchedules();
     setSchedules(scheduleData);
     setSchedulesLoading(false);
+  };
+
+  const loadUserInfo = async () => {
+    setUserLoading(true);
+    try {
+      // AsyncStorage에서 토큰 가져오기
+      const token = await AsyncStorage.getItem('token');
+      console.log('저장된 토큰:', token); // 토큰 확인
+      
+      if (token) {
+        const userData = await getUserInfo(token);
+        console.log('사용자 정보 응답:', userData); // 디버깅용 로그
+        setUser(userData);
+      } else {
+        console.log('토큰이 없습니다.');
+      }
+    } catch (error) {
+      console.error('사용자 정보 로드 실패:', error);
+    } finally {
+      setUserLoading(false);
+    }
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -264,15 +318,18 @@ const MainScreen = () => {
 
   const pendingSchedules = schedules.filter(s => !s.isCompleted);
   const completedSchedules = schedules.filter(s => s.isCompleted);
-
+  
   return (
+    
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EEEFF6" />
       
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Union</Text>
         <View style={styles.headerRight}>
-          <Text style={styles.headerUser}>사용자명</Text>
+          <Text style={styles.headerUser}>
+            {userLoading ? '로딩 중...' : user?.name || '사용자'}
+          </Text>
           <TouchableOpacity onPress={handleLogout}>
             <Ionicons name="person-circle-outline" size={48} color="#3B4B87" />
           </TouchableOpacity>
