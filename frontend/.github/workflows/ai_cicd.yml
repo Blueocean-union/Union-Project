@@ -1,0 +1,59 @@
+name: ai_cicd
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'ai_modules/**'
+      - '.github/workflows/**'
+  schedule:
+    - cron: '0 18 * * *' # KST 03:00 (UTC 18:00)
+  workflow_dispatch: {}
+concurrency:
+  group: ai-modules-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+env:
+  APP_DIR: ai_modules
+  TARGET_DIR: /home/ubuntu/fastapi
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight – check required secrets
+        run: |
+          [ -n "${{ secrets.EC2_HOST }}" ] && \
+          [ -n "${{ secrets.EC2_USER }}" ] && \
+          [ -n "${{ secrets.EC2_SSH_KEY }}" ] || {
+            echo "Missing one of: EC2_HOST / EC2_USER / EC2_SSH_KEY";
+            exit 1;
+          }
+      - name: Upload ai_modules → EC2:${{ env.TARGET_DIR }}
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "${{ env.APP_DIR }}/**"
+          target: "${{ env.TARGET_DIR }}/"
+          overwrite: true
+          rm: false
+          strip_components: 1
+          timeout: "120s"
+          exclude: |
+            **/.git/**
+            **/.DS_Store
+            **/__pycache__/**
+            **/.venv/**
+            **/venv/**
+            **/node_modules/**
+      - name: Restart FastAPI service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo systemctl daemon-reload
+            sudo systemctl restart fastapi.service
