@@ -8,7 +8,7 @@ import {
   removeFile,
   buildDownloadUrl,
   type FileItem,
-} from '../libs/api/files';
+} from '../../libs/api/files';
 
 type Props = {
   route: { params: { folderId: number; folderName?: string } };

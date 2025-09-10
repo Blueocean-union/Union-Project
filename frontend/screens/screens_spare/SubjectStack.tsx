@@ -1,14 +1,13 @@
+// screens/SubjectStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import SubjectListScreen from './SubjectListScreen';
 import SubjectDetailScreen from './SubjectDetailScreen';
-import SubjectInnerScreen from './SubjectInnerScreen';
 
 export type SubjectStackParamList = {
   SubjectList: undefined;
   SubjectDetail: { subject: any };
-  SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
   QuizSelect: undefined;
   QuizRoom: undefined;
   QuizResult: undefined;
@@ -26,10 +25,6 @@ export default function SubjectStack() {
       <Stack.Screen
         name="SubjectDetail"
         component={SubjectDetailScreen as unknown as React.ComponentType<any>}
-      />
-      <Stack.Screen
-        name="SubjectInner"
-        component={SubjectInnerScreen as unknown as React.ComponentType<any>}
       />
     </Stack.Navigator>
   );
