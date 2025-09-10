@@ -26,6 +26,34 @@ interface SearchResult {
   formattedUrl: string;
 }
 
+interface GoogleSearchResponse {
+  url?: {
+    type: string;
+    template: string;
+  };
+  queries?: {
+    request: Array<{
+      title: string;
+      totalResults: string;
+      startIndex: number;
+      count: number;
+    }>;
+    nextPage?: Array<{
+      title: string;
+      totalResults: string;
+      startIndex: number;
+      count: number;
+    }>;
+  };
+  searchInformation?: {
+    searchTime: number;
+    formattedSearchTime: string;
+    totalResults: string;
+    formattedTotalResults: string;
+  };
+  items: SearchResult[];
+}
+
 interface SearchTab {
   id: string;
   query: string;
@@ -162,16 +190,14 @@ export default function SearchScreen() {
       const token = await AsyncStorage.getItem('accessToken');
       console.log('토큰 확인:', token ? '있음' : '없음');
       
-      const response = await axios.get('http://52.78.209.115:8080/api/search', {
+      const response = await axios.get<GoogleSearchResponse>('http://52.78.209.115:8080/api/search', {
         params: {
-          req: {
-            q: query.trim(),
-            start: 1,
-            num: 10,
-            gl: 'KR',
-            lr: 'lang_ko',
-            safe: 'off'
-          }
+          q: query.trim(),
+          start: 1,
+          num: 10,
+          gl: 'KR',
+          lr: 'lang_ko',
+          safe: 'off'
         },
         headers: {
           'Authorization': token ? `Bearer ${token}` : undefined,
@@ -201,7 +227,21 @@ export default function SearchScreen() {
     } catch (error: any) {
       console.error('검색 오류:', error);
       console.error('오류 상세:', error.response?.data || error.message);
-      Alert.alert('오류', '검색 중 문제가 발생했습니다.');
+      
+      let errorMessage = '검색 중 문제가 발생했습니다.';
+      if (error.response?.status === 400) {
+        errorMessage = '검색 요청이 잘못되었습니다.';
+      } else if (error.response?.status === 401) {
+        errorMessage = '인증이 필요합니다.';
+      } else if (error.response?.status === 403) {
+        errorMessage = '검색 권한이 없습니다.';
+      } else if (error.response?.status === 429) {
+        errorMessage = '검색 요청 한도를 초과했습니다.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = '서버 오류가 발생했습니다.';
+      }
+      
+      Alert.alert('오류', errorMessage);
       
       setSearchTabs(tabs =>
         tabs.map(tab =>
