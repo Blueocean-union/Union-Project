@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getSubject, updateSubject } from '../../libs/api/subject';
+import SubjectFileStorage from './SubjectFileStorage';
 
 type Props = {
   route: { params: { subjectId: number; subjectName: string; subjectColor: string } };
@@ -31,6 +32,34 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
     setLoading(true);
     try {
       console.log('🔄 과목 상세 정보 불러오기 시작:', subjectId);
+      
+      // 토큰 확인
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log('🔑 토큰 상태:', token ? '존재함' : '없음');
+      if (token) {
+        console.log('🔑 토큰 길이:', token.length);
+        console.log('🔑 토큰 시작:', token.substring(0, 20) + '...');
+        console.log('🔑 토큰 형식:', token.startsWith('Bearer ') ? 'Bearer 포함' : 'Bearer 없음');
+        
+        // 토큰 유효성 테스트 (간단한 API 호출)
+        try {
+          console.log('🧪 토큰 유효성 테스트 시작...');
+          const testResponse = await fetch('http://52.78.209.115:8080/api/subjects', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          console.log('🧪 테스트 응답 상태:', testResponse.status);
+          if (testResponse.status === 401) {
+            console.log('❌ 토큰이 유효하지 않습니다!');
+          }
+        } catch (testError) {
+          console.log('❌ 토큰 테스트 실패:', testError);
+        }
+      }
+      
       const data = await getSubject(subjectId);
       console.log('📡 과목 상세 API 응답:', data);
       
@@ -49,6 +78,11 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
       setSubject(subjectData);
     } catch (e: any) {
       console.error('❌ 과목 상세 정보 불러오기 실패:', e);
+      console.error('❌ 에러 타입:', e.constructor.name);
+      console.error('❌ 에러 메시지:', e.message);
+      console.error('❌ 에러 코드:', e.code);
+      console.error('❌ 에러 응답:', e.response?.data);
+      console.error('❌ 에러 상태:', e.response?.status);
       console.log('📝 기본값으로 설정:', { subjectId, subjectName, subjectColor });
       
       // API가 없을 경우 기본값 설정
@@ -161,14 +195,6 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
     return `${month}월 ${date}일 ${dayName}요일`;
   };
 
-  const handleAddMaterial = () => {
-    console.log('📁 자료 버튼 누름');
-    if (Platform.OS === 'web') {
-      alert('자료 추가 기능');
-    } else {
-      Alert.alert('자료 추가', '자료 추가 기능을 구현하시겠습니까?');
-    }
-  };
 
   const handleAddSchedule = () => {
     console.log('📅 일정 버튼 누름');
@@ -288,19 +314,11 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
       <View style={styles.mainContent}>
         {/* 자료 섹션 */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="document-text" size={20} color={subjectColor} />
-            <Text style={[styles.sectionTitle, { color: subjectColor }]}>자료</Text>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={handleAddMaterial}
-            >
-              <Ionicons name="add" size={20} color={subjectColor} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>비어있음</Text>
-          </View>
+          <SubjectFileStorage 
+            subjectId={subjectId}
+            folderId={subjectId} // 과목 ID를 폴더 ID로 사용
+            subjectColor={subjectColor}
+          />
         </View>
 
         {/* 일정 섹션 */}
@@ -411,7 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
+    padding: 16, // 두 섹션 모두 동일한 패딩
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
