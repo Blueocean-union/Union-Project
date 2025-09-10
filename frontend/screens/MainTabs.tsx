@@ -14,6 +14,7 @@ import QuizSelectScreen from './quiz/QuizSelectScreen';
 import SearchScreen from './search/SearchScreen';
 import SubjectDetailScreen from './subject/SubjectDetailScreen';
 import SubjectListScreen from './subject/SubjectListScreen';
+import SubjectInnerScreen from './subject/SubjectInnerScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -28,6 +29,7 @@ function SubjectStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
+      <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
     </Stack.Navigator>
   );
 }

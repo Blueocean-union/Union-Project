@@ -2,20 +2,37 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SubjectStackParamList } from './SubjectStack';
+// import type { SubjectStackParamList } from './SubjectStack';
+
+type SubjectStackParamList = {
+  SubjectList: undefined;
+  SubjectDetail: { subject: any };
+  SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
+};
 
 type Props = NativeStackScreenProps<SubjectStackParamList, 'SubjectDetail'>;
 
 export default function SubjectDetailScreen({ route }: Props) {
   const { subject } = route.params;
+  const subjectColor = subject.color || '#2b3f85';
   const screenWidth = Dimensions.get('window').width;
+  
+  // 현재 날짜 가져오기
+  const getCurrentDate = () => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const date = today.getDate();
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayName = dayNames[today.getDay()];
+    return `${month}월 ${date}일 ${dayName}요일`;
+  };
 
   return (
     <View style={styles.container}>
       {/* 제목과 날짜 */}
       <View style={styles.header}>
-        <Text style={styles.title}>{subject.title}</Text>
-        <Text style={styles.date}>6월 30일 월요일</Text>
+        <Text style={[styles.title, { color: subjectColor }]}>{subject.title}</Text>
+        <Text style={styles.date}>{getCurrentDate()}</Text>
       </View>
 
       {/* 진행률 바 */}
@@ -24,7 +41,10 @@ export default function SubjectDetailScreen({ route }: Props) {
           <View
             style={[
               styles.progressBarFill,
-              { width: `${subject.progress * 100}%` },
+              { 
+                width: `${subject.progress * 100}%`,
+                backgroundColor: subjectColor
+              },
             ]}
           />
         </View>

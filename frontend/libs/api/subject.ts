@@ -17,3 +17,22 @@ export async function createSubject(data: {
   });
   return res.data;
 }
+
+export async function deleteSubject(subjectId: number) {
+  const res = await api.delete(`/api/subjects/${subjectId}`);
+  return res.data;
+}
+
+export async function getSubject(subjectId: number) {
+  const res = await api.get(`/api/subjects/${subjectId}`);
+  return res.data;
+}
+
+export async function updateSubject(subjectId: number, data: {
+  name?: string;
+  color?: string;
+  isFavorite?: boolean;
+}) {
+  const res = await api.put(`/api/subjects/${subjectId}`, data);
+  return res.data;
+}
