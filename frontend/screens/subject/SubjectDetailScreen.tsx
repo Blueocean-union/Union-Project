@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import SubjectFileStorage from './SubjectFileStorage';
 // import type { SubjectStackParamList } from './SubjectStack';
 
 type SubjectStackParamList = {
@@ -69,14 +70,11 @@ export default function SubjectDetailScreen({ route, navigation }: Props) {
       <View style={styles.contentWrapper}>
         {/* 자료 */}
         <View style={styles.column}>
-          <Text style={styles.sectionTitle}>📚 자료</Text>
-          <View>
-            {subject.files.map((file: any, idx: number) => (
-              <Text key={idx} style={styles.item}>
-                {file}
-              </Text>
-            ))}
-          </View>
+          <SubjectFileStorage 
+            subjectId={subject.id}
+            folderId={subject.folderId || 1} // 기본 폴더 ID
+            subjectColor={subjectColor}
+          />
         </View>
 
         {/* 일정 */}
