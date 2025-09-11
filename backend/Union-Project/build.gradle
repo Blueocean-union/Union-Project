@@ -18,45 +18,51 @@ repositories {
 }
 
 dependencies {
+	// Spring
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-
-	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+	// (필요하면 유지) WebFlux는 WebClient 목적일 때만
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// Cache/Resilience
+	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+
 	// OAuth2 Client
-	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 
 	// JWT
-	implementation("io.jsonwebtoken:jjwt-api:0.11.5")
-	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
-	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5") // ObjectMapper 사용 시
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
-	implementation 'mysql:mysql-connector-java:8.0.33'
+	// MySQL (Boot3 권장 좌표)
+	runtimeOnly 'com.mysql:mysql-connector-j'
 
-	compileOnly 'org.projectlombok:lombok:1.18.20'
-	annotationProcessor 'org.projectlombok:lombok:1.18.20'
+	// Lombok
+	compileOnly 'org.projectlombok:lombok:1.18.32'
+	annotationProcessor 'org.projectlombok:lombok:1.18.32'
+
+	// OpenAPI
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+
+	// === AWS SDK v2 (BOM + 모듈 버전 X) ===
+	implementation platform('software.amazon.awssdk:bom:2.25.39')
+	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:sts'
+	// 필요 시
+	implementation 'software.amazon.awssdk:cloudfront'
+	implementation 'software.amazon.awssdk:url-connection-client'
+	// 대용량 업/다운로드 필요 시만
+	// implementation 'software.amazon.awssdk:s3-transfer-manager'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
-
-	implementation 'org.springframework.boot:spring-boot-starter-webflux' // WebClient
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-cache'
-	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8' // optional cache
-	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0' // optional
-
-	// BOM으로 버전 한 번에 관리(권장)
-	implementation platform("software.amazon.awssdk:bom:2.25.39")
-
-	// S3 + Presigner 포함
-	implementation "software.amazon.awssdk:s3"
-
-	// (선택) STS, CloudFront, Netty 클라이언트 등
-	// implementation "software.amazon.awssdk:sts"
-	// implementation "software.amazon.awssdk:cloudfront"
-	// implementation "software.amazon.awssdk:url-connection-client"
 }
 
 tasks.named('test') {
