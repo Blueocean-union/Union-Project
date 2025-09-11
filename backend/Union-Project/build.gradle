@@ -47,12 +47,16 @@ dependencies {
 	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8' // optional cache
 	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0' // optional
 
-	// AWS SDK v2 - S3
-	implementation "software.amazon.awssdk:s3:2.25.39"
+	// BOM으로 버전 한 번에 관리(권장)
+	implementation platform("software.amazon.awssdk:bom:2.25.39")
 
-	// Presigner (S3 업로드/다운로드 presigned URL 생성용)
-	implementation "software.amazon.awssdk:s3:2.25.39"
-	implementation "software.amazon.awssdk:s3-presigner:2.25.39"
+	// S3 + Presigner 포함
+	implementation "software.amazon.awssdk:s3"
+
+	// (선택) STS, CloudFront, Netty 클라이언트 등
+	// implementation "software.amazon.awssdk:sts"
+	// implementation "software.amazon.awssdk:cloudfront"
+	// implementation "software.amazon.awssdk:url-connection-client"
 }
 
 tasks.named('test') {
