@@ -37,7 +37,8 @@ public class Folder {
     private List<Folder> subFolders = new ArrayList<>();
 
     // 폴더 안에 포함된 파일들
-    @OneToMany(mappedBy = "folder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany
+    @JoinColumn(name = "folder_id")
     @Builder.Default
     private List<FileItem> files = new ArrayList<>();
 
