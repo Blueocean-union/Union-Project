@@ -69,5 +69,7 @@ logging:
     org.springframework.web: DEBUG
     org.springframework.web.multipart: DEBUG
 
-file:
-  upload-dir: /home/ubuntu/uploads
+aws:
+  region: ap-northeast-2
+  s3:
+    bucket: union-s3-bucket
