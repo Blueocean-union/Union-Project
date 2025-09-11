@@ -71,5 +71,7 @@ logging:
 
 aws:
   region: ap-northeast-2
+  access-key: ${AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY}
   s3:
     bucket: union-s3-bucket
