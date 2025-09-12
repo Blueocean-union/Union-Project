@@ -1,84 +1,139 @@
-// screens/QuizRoomScreen.tsx
-import React, { useMemo, useState } from 'react';
-import { View, Text, Button, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { Quiz, Question, Choice } from "../../types/quiz";
 
-export type QuizQuestion = {
-  id: string;
-  text: string;
-  choices: { id: string; text: string }[];
-  answerId: string;
+type Props = {
+  quiz: Quiz;
 };
 
-type RouteParams = { quizData: QuizQuestion[] };
+const QuizRoomScreen: React.FC<Props> = ({ quiz }) => {
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number }>({});
 
-export default function QuizRoomScreen() {
-  const route = useRoute<any>();
-  const navigation = useNavigation<any>();
-
-  const quizData: QuizQuestion[] = (route.params?.quizData ?? []) as QuizQuestion[];
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [userAnswers, setUserAnswers] = useState<{ [key: string]: string }>({});
-
-  const q = useMemo(() => quizData[currentIndex], [quizData, currentIndex]);
-
-  const handleSelect = (id: string) => setSelectedId(id);
-
-  const handleNext = () => {
-    if (!q) return;
-    setUserAnswers((prev) => ({ ...prev, [q.id]: selectedId ?? '' }));
-
-    if (currentIndex < quizData.length - 1) {
-      setSelectedId(null);
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      navigation.navigate('QuizResult', { quizData, userAnswers });
-    }
+  const handleSelect = (question: Question, choice: Choice, choiceIndex: number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [question.id]: choiceIndex,
+    }));
   };
 
-  if (!q) {
-    return (
-      <View style={styles.container}>
-        <Text>퀴즈 데이터가 없습니다.</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.q}>{q.text}</Text>
-      <View style={{ gap: 8 }}>
-        {q.choices.map((c) => (
-          <TouchableOpacity
-            key={c.id}
-            style={[
-              styles.choice,
-              selectedId === c.id && styles.choiceSelected,
-            ]}
-            onPress={() => handleSelect(c.id)}
-          >
-            <Text style={styles.choiceText}>{c.text}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>{quiz.title}</Text>
 
-      <View style={{ height: 12 }} />
-      <Button title={currentIndex < quizData.length - 1 ? '다음' : '결과 보기'} onPress={handleNext} />
-    </View>
+      {quiz.questions.map((q: Question, qi: number) => {
+        const selected = selectedAnswers[q.id];
+        return (
+          <View key={qi} style={styles.card}>
+            <Text style={styles.question}>
+              Q{qi + 1}. {q.text}
+            </Text>
+
+            {q.choices.map((c: Choice, ci: number) => {
+              const isSelected = selected === ci;
+              const isCorrect = q.answer === ci;
+
+              return (
+                <TouchableOpacity
+                  key={ci}
+                  style={[
+                    styles.choice,
+                    isSelected && (isCorrect ? styles.correctChoice : styles.incorrectChoice),
+                  ]}
+                  onPress={() => handleSelect(q, c, ci)}
+                >
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      isSelected && (isCorrect ? styles.correctText : styles.incorrectText),
+                    ]}
+                  >
+                    {String.fromCharCode(65 + ci)}. {c.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* 정답 및 해설 */}
+            {selected !== undefined && (
+              <View style={styles.explanationBox}>
+                <Text style={styles.explanation}>
+                  정답: {String.fromCharCode(65 + q.answer)}. {q.choices[q.answer].text}
+                </Text>
+                {q.explanation && <Text style={styles.explanation}>{q.explanation}</Text>}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 12 },
-  q: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  choice: {
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#f8f9fa",
   },
-  choiceSelected: { borderColor: '#1a73e8' },
-  choiceText: { fontSize: 16 },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  question: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  choice: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 8,
+  },
+  choiceText: {
+    fontSize: 15,
+  },
+  correctChoice: {
+    backgroundColor: "#e6f7e6",
+    borderColor: "#28a745",
+  },
+  incorrectChoice: {
+    backgroundColor: "#fdecea",
+    borderColor: "#dc3545",
+  },
+  correctText: {
+    color: "#28a745",
+    fontWeight: "bold",
+  },
+  incorrectText: {
+    color: "#dc3545",
+    fontWeight: "bold",
+  },
+  explanationBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#f1f3f5",
+  },
+  explanation: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 4,
+  },
 });
+
+export default QuizRoomScreen;

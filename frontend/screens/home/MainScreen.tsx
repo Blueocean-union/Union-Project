@@ -58,11 +58,23 @@ const getUserInfo = async (token: string): Promise<User | null> => {
 
 const getSubjects = async (): Promise<Subject[]> => {
   try {
+    // accessToken으로 불러오기 (키 이름 맞추기)
+    const token = await AsyncStorage.getItem('accessToken');
+    if (!token) throw new Error('토큰 없음');
+
     const response = await fetch(`${API_BASE}/subjects`, {
-      headers: { 'accept': '*/*' },
+      headers: { 
+        'accept': '*/*',
+        'Authorization': `Bearer ${token}`
+      },
     });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
+
     const progressData = [65, 45, 80, 90];
     return data.map((subject: Subject, index: number) => ({
       ...subject,
@@ -73,6 +85,9 @@ const getSubjects = async (): Promise<Subject[]> => {
     return [];
   }
 };
+
+
+
 
 const getTodaySchedules = async (): Promise<Schedule[]> => {
   try {

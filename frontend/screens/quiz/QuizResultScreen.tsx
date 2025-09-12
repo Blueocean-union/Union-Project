@@ -1,46 +1,35 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { QuizQuestion } from '../../types/quiz';
+// screens/quiz/QuizResultScreen.tsx
+import React from "react";
+import { View, Text, ScrollView } from "react-native";
+import { Quiz, QuizQuestion } from "../../types/quiz";
 
-export default function QuizResultScreen() {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { quizData, userAnswers } = route.params as {
-    quizData: QuizQuestion[];
-    userAnswers: { [key: string]: string };
+type Props = { route: any; navigation: any };
+
+export default function QuizResultScreen({ route }: Props) {
+  const { quiz, userAnswers } = route.params as {
+    quiz: Quiz;
+    userAnswers: Record<string, number | undefined>;
   };
 
-  const renderItem = ({ item }: { item: QuizQuestion }) => {
-    const userChoice = userAnswers[item.id];
-    const isCorrect = userChoice === item.correctOptionId;
-    const correctOption = item.options.find(o => o.id === item.correctOptionId)?.text;
-    const userOption = item.options.find(o => o.id === userChoice)?.text;
-
-    return (
-      <View style={styles.resultBox}>
-        <Text style={styles.question}>{item.questionText}</Text>
-        <Text>내 답변: {userOption}</Text>
-        <Text>정답: {correctOption}</Text>
-        <Text style={{ color: isCorrect ? 'green' : 'red' }}>
-          {isCorrect ? '정답입니다!' : '오답입니다'}
-        </Text>
-        {item.explanation && <Text>해설: {item.explanation}</Text>}
-      </View>
-    );
-  };
+  const total = quiz.questions.length;
+  const correct = quiz.questions.reduce(
+    (acc: number, q: QuizQuestion) => acc + (q.answer === userAnswers[q.id] ? 1 : 0),
+    0
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>퀴즈 결과</Text>
-      <FlatList data={quizData} renderItem={renderItem} keyExtractor={(item: QuizQuestion) => item.id} />
-    </View>
+    <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: "bold" }}>{`정답: ${correct}/${total}`}</Text>
+      {quiz.questions.map((q, i) => (
+        <View key={q.id} style={{ paddingVertical: 10 }}>
+          <Text style={{ fontWeight: "600" }}>{`${i + 1}. ${q.text}`}</Text>
+          <Text style={{ opacity: 0.7 }}>
+            당신의 선택: {userAnswers[q.id] !== undefined ? (userAnswers[q.id]! + 1) : "-"}
+            {typeof q.answer === "number" ? ` / 정답: ${q.answer + 1}` : ""}
+          </Text>
+          {q.explanation ? <Text style={{ marginTop: 4, opacity: 0.7 }}>해설: {q.explanation}</Text> : null}
+        </View>
+      ))}
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 16 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
-  resultBox: { padding: 12, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 12 },
-  question: { fontWeight: 'bold', marginBottom: 6 },
-});

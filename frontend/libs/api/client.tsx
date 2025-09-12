@@ -1,4 +1,4 @@
-// frontend/libs/api/client.ts
+// frontend/libs/api/client.tsx
 // 공통 API 클라이언트 (fetch 기반). baseURL은 .env 또는 EXPO_PUBLIC_API_BASE_URL 사용.
 const DEFAULT_BASE =
   process.env.EXPO_PUBLIC_API_BASE_URL ||
