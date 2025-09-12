@@ -1,4 +1,4 @@
-// libs/api/quiz.ts
+// libs/api/quiz.tsx
 import http from "./http";
 import * as FileSystem from "expo-file-system";
 import { RawQuizResponse, Quiz } from "../../types/quiz";
@@ -17,7 +17,9 @@ function mapResponseToQuiz(data: RawQuizResponse): Quiz {
     text: q?.text ?? q?.question ?? "",
     choices: (q?.choices ?? q?.options ?? []).map((t: any) => ({ text: String(t) })),
     answer: q?.answerIndex ?? q?.answer ?? undefined,
-    explanation: q?.explanation ?? q?.reason ?? undefined,
+    explanation: q?.explanation ?? q?.reason ?? "",
+    source: q?.source ?? q?.fileName ?? "",
+    difficulty: Number(q?.difficulty ?? q?.stars ?? 0) || undefined,
   }));
 
   return { id: data?.id ?? Math.random().toString(36).slice(2, 10), title, questions };
@@ -25,8 +27,8 @@ function mapResponseToQuiz(data: RawQuizResponse): Quiz {
 
 export interface UploadParams {
   files: { uri: string; name?: string; mimeType?: string }[];
-  model?: string;     // query
-  keyNames?: string;  // body
+  model?: string;
+  keyNames?: string;
 }
 
 /** POST /api/ai/pdfs/quiz (multipart/form-data) */
@@ -37,7 +39,7 @@ export async function uploadAndCreateQuiz(params: UploadParams): Promise<Quiz> {
     const info = await FileSystem.getInfoAsync(f.uri);
     if (!info.exists) continue;
 
-    // RN: TS 시그니처 회피를 위해 any로 캐스팅
+    // RN FormData 파일
     const rnFile: any = {
       uri: f.uri,
       name: f.name ?? f.uri.split("/").pop() ?? "file.pdf",
@@ -45,7 +47,6 @@ export async function uploadAndCreateQuiz(params: UploadParams): Promise<Quiz> {
     };
     form.append("files", rnFile);
   }
-
   if (params.keyNames) form.append("keyNames", params.keyNames);
 
   const res = await http.post(`/api/ai/pdfs/quiz`, form, {
