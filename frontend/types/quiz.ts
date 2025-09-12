@@ -1,25 +1,26 @@
-// types/quiz.ts
-export interface QuizFile {
-  id: string;          // 서버가 리턴 안 해도 임시 id 용도로 사용
-  filename: string;
-  uploadedAt?: string;
-}
-
-export interface QuizChoice { text: string }
-
-export interface QuizQuestion {
+// 개별 선택지
+export type Choice = {
   id: string;
   text: string;
-  choices: QuizChoice[];
-  answer?: number;          // 정답 index (옵션)
-  explanation?: string;     // 해설 (옵션)
-}
+};
 
-export interface Quiz {
+// 문제
+export type Question = {
+  id: string;
+  text: string;
+  choices: Choice[];
+  answer: number;          // 정답 인덱스
+  explanation?: string;    // 해설 (옵션)
+};
+
+// 퀴즈
+export type Quiz = {
   id: string;
   title: string;
-  questions: QuizQuestion[];
-}
+  questions: Question[];
+};
 
-// 서버 원본 응답(JSON) — 매퍼에서 안전하게 처리하기 위해 any 허용
-export type RawQuizResponse = any;
+// API 응답 최상위
+export type RawQuizResponse = {
+  items: Quiz[];
+};
