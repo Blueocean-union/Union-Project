@@ -1,51 +1,73 @@
-// screens/QuizSelectScreen.tsx
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Button } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { dummyQuizData } from './dummyQuiz';
+// screens/quiz/QuizSelectScreen.tsx
+import React, { useState } from "react";
+import {
+  View, Text, Button, Alert, FlatList, TouchableOpacity
+} from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import { uploadAndCreateQuiz } from "../../libs/api/quiz";
+import { Quiz } from "../../types/quiz";
 
-const fakeFiles = [
-  { id: 'file1', name: '객체지향교재.pdf' },
-  { id: 'file2', name: '9주차 자료.pdf' },
-  { id: 'file3', name: 'OT 문제지.pdf' },
-];
+export default function QuizSelectScreen({ navigation }: any) {
+  const [items, setItems] = useState<{ id: string; name: string }[]>([]);
+  const [busy, setBusy] = useState(false);
 
-export default function QuizSelectScreen() {
-  const navigation = useNavigation<any>();
+  const handleUpload = async () => {
+    try {
+      const pick = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        type: [
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "text/plain",
+        ],
+        copyToCacheDirectory: true,
+      });
+      if (pick.canceled) return;
 
-  const handleCreateQuiz = (fileId: string) => {
-    // 실제 fileId 기반 퀴즈 생성 API 요청 자리
-    navigation.navigate('QuizRoom', { quizData: dummyQuizData });
+      setBusy(true);
+
+      const files = pick.assets.map((a) => ({
+        uri: a.uri,
+        name: a.name,
+        mimeType: a.mimeType ?? undefined,
+      }));
+
+      const quiz: Quiz = await uploadAndCreateQuiz({
+        files,
+        model: "gpt-4o-mini",                 // 서버가 허용하는 모델명으로 조정 가능
+        keyNames: "question,options,answer,explanation",
+      });
+
+      navigation.navigate("QuizRoom", { quiz });
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("업로드 실패", e?.message ?? "잠시 후 다시 시도해주세요.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <View style={S.container}>
+    <View style={{ flex: 1, padding: 20, gap: 12 }}>
+      <Button
+        title={busy ? "업로드 중..." : "파일 업로드해서 퀴즈 만들기"}
+        onPress={handleUpload}
+        disabled={busy}
+      />
+
+      {/* (선택) 업로드 파일 저장/목록을 붙이고 싶을 때 사용할 리스트 */}
       <FlatList
-        data={fakeFiles}
-        keyExtractor={(item) => item.id}
+        style={{ marginTop: 16 }}
+        data={items}
+        keyExtractor={(i) => i.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={S.row} onPress={() => handleCreateQuiz(item.id)}>
-            <Text style={S.name}>{item.name}</Text>
-            <Button title="퀴즈 생성" onPress={() => handleCreateQuiz(item.id)} />
+          <TouchableOpacity
+            onPress={() => navigation.navigate("QuizRoom", { fileId: item.id })}
+          >
+            <Text>{item.name}</Text>
           </TouchableOpacity>
         )}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
       />
     </View>
   );
 }
-
-const S = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-    backgroundColor: '#fff',
-  },
-  name: { fontSize: 16 },
-});

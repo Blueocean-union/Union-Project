@@ -1,60 +1,57 @@
-// frontend/libs/api/quiz.ts
-import { postForm } from './client';
-import type { QuizGenerateResponse, QuizItem } from '../../types/quiz';
+// libs/api/quiz.ts
+import http from "./http";
+import * as FileSystem from "expo-file-system";
+import { RawQuizResponse, Quiz } from "../../types/quiz";
 
-export type PdfSource = {
-  uri: string;
-  name?: string;
-  type?: string;
-};
+/** 서버 응답(JSON) → Quiz로 변환 */
+function mapResponseToQuiz(data: RawQuizResponse): Quiz {
+  const title = data?.title ?? "AI 생성 퀴즈";
+  const items = Array.isArray(data?.questions)
+    ? data.questions
+    : Array.isArray(data?.items)
+    ? data.items
+    : [];
 
-type GenerateParams = {
-  files: PdfSource[];
-  model?: string;
-  keyNames?: string;
-};
+  const questions = items.map((q: any, idx: number) => ({
+    id: q?.id ?? String(idx + 1),
+    text: q?.text ?? q?.question ?? "",
+    choices: (q?.choices ?? q?.options ?? []).map((t: any) => ({ text: String(t) })),
+    answer: q?.answerIndex ?? q?.answer ?? undefined,
+    explanation: q?.explanation ?? q?.reason ?? undefined,
+  }));
 
-/** 서버 응답을 앱에서 쓰는 QuizItem[]으로 변환 */
-export function normalizeQuizzes(raw: QuizGenerateResponse): QuizItem[] {
-  const arr = Array.isArray(raw?.quizzes) ? raw.quizzes : [];
-  return arr.map((q: any) => {
-    const opts = [q.option1, q.option2, q.option3, q.option4].filter(Boolean);
-    // 서버가 answer를 1~4로 주면 0-index로 변환
-    const answer =
-      typeof q.answer === 'number'
-        ? (Number(q.answer) - 1 >= 0 ? Number(q.answer) - 1 : Number(q.answer))
-        : undefined;
-    return {
-      question: String(q.question ?? ''),
-      options: opts,
-      difficulty: q.difficulty,
-      answer_explanation: q.answer_explanation,
-      correctIndex: typeof answer === 'number' ? answer : undefined,
-    };
-  });
+  return { id: data?.id ?? Math.random().toString(36).slice(2, 10), title, questions };
 }
 
-/** POST /api/ai/pdfs/quiz  (multipart/form-data) */
-export async function generateQuizFromPdfs({
-  files,
-  model,
-  keyNames,
-}: GenerateParams): Promise<QuizGenerateResponse> {
-  if (!files?.length) throw new Error('PDF 파일이 없습니다.');
+export interface UploadParams {
+  files: { uri: string; name?: string; mimeType?: string }[];
+  model?: string;     // query
+  keyNames?: string;  // body
+}
 
+/** POST /api/ai/pdfs/quiz (multipart/form-data) */
+export async function uploadAndCreateQuiz(params: UploadParams): Promise<Quiz> {
   const form = new FormData();
 
-  for (const f of files) {
-    const part: any = {
+  for (const f of params.files) {
+    const info = await FileSystem.getInfoAsync(f.uri);
+    if (!info.exists) continue;
+
+    // RN: TS 시그니처 회피를 위해 any로 캐스팅
+    const rnFile: any = {
       uri: f.uri,
-      name: f.name || 'file.pdf',
-      type: f.type || 'application/pdf',
+      name: f.name ?? f.uri.split("/").pop() ?? "file.pdf",
+      type: f.mimeType ?? "application/pdf",
     };
-    // RN 전용 file part – TS에서는 Blob이 아니라서 any로 처리
-    form.append('files', part as any);
+    form.append("files", rnFile);
   }
 
-  if (keyNames) form.append('keyNames', keyNames);
+  if (params.keyNames) form.append("keyNames", params.keyNames);
 
-  return postForm<QuizGenerateResponse>('/api/ai/pdfs/quiz', form, { model });
+  const res = await http.post(`/api/ai/pdfs/quiz`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    params: { model: params.model },
+  });
+
+  return mapResponseToQuiz(res.data);
 }
