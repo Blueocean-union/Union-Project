@@ -13,26 +13,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../MainTabs';
 
 interface FileItem {
   id: number;
+  folderId: number;
   originalFileName: string;
-  storedFileName: string;
-  fileType: string;
-  filePath: string;
-  uploadedAt: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
 }
 
-interface AudioPlayerScreenProps {
-  route: {
-    params: {
-      file: FileItem;
-      fileUri: string;
-      subjectColor: string;
-    };
-  };
-  navigation: any;
-}
+type Props = NativeStackScreenProps<SubjectStackParamList, 'AudioPlayerScreen'>;
 
 interface TranscriptionResult {
   id: number;
@@ -44,7 +38,7 @@ interface TranscriptionResult {
   createdAt: string;
 }
 
-export default function AudioPlayerScreen({ route, navigation }: AudioPlayerScreenProps) {
+export default function AudioPlayerScreen({ route, navigation }: Props) {
   const { file, fileUri, subjectColor } = route.params;
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);

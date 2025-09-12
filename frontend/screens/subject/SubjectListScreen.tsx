@@ -18,10 +18,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getSubjects, deleteSubject as deleteSubjectAPI } from '../../libs/api/subject';
 import SubjectCreateModal from './SubjectCreateModal';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../MainTabs';
 
-type Props = {
-  navigation: any;
-};
+type Props = NativeStackScreenProps<SubjectStackParamList, 'SubjectList'>;
 
 export default function SubjectListScreen({ navigation }: Props) {
   const [subjects, setSubjects] = useState<any[]>([]);

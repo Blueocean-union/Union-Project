@@ -15,6 +15,8 @@ import SearchScreen from './search/SearchScreen';
 import SubjectDetailScreen from './subject/SubjectDetailScreen';
 import SubjectListScreen from './subject/SubjectListScreen';
 import SubjectInnerScreen from './subject/SubjectInnerScreen';
+import PdfViewerScreen from './subject/PdfViewerScreen';
+import AudioPlayerScreen from './subject/AudioPlayerScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -24,12 +26,23 @@ import CommonStyles from '../styles/CommonStyles';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// SubjectStack 타입 정의
+export type SubjectStackParamList = {
+  SubjectList: undefined;
+  SubjectDetail: { subject: any };
+  SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
+  PdfViewerScreen: { file: any; fileUri: string; subjectColor: string };
+  AudioPlayerScreen: { file: any; fileUri: string; subjectColor: string };
+};
+
 function SubjectStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
       <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
+      <Stack.Screen name="PdfViewerScreen" component={PdfViewerScreen as any} />
+      <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
     </Stack.Navigator>
   );
 }

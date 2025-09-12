@@ -14,11 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getSubject, updateSubject } from '../../libs/api/subject';
 import SubjectFileStorage from './SubjectFileStorage';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../MainTabs';
 
-type Props = {
-  route: { params: { subjectId: number; subjectName: string; subjectColor: string } };
-  navigation: any;
-};
+type Props = NativeStackScreenProps<SubjectStackParamList, 'SubjectInner'>;
 
 export default function SubjectInnerScreen({ route, navigation }: Props) {
   const { subjectId, subjectName, subjectColor } = route.params;
@@ -318,6 +317,7 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
             subjectId={subjectId}
             folderId={subjectId} // 과목 ID를 폴더 ID로 사용
             subjectColor={subjectColor}
+            navigation={navigation}
           />
         </View>
 

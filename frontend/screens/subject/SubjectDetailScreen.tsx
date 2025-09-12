@@ -3,13 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import SubjectFileStorage from './SubjectFileStorage';
-// import type { SubjectStackParamList } from './SubjectStack';
-
-type SubjectStackParamList = {
-  SubjectList: undefined;
-  SubjectDetail: { subject: any };
-  SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
-};
+import type { SubjectStackParamList } from '../MainTabs';
 
 type Props = NativeStackScreenProps<SubjectStackParamList, 'SubjectDetail'>;
 
@@ -74,6 +68,7 @@ export default function SubjectDetailScreen({ route, navigation }: Props) {
             subjectId={subject.id}
             folderId={subject.folderId || 1} // 기본 폴더 ID
             subjectColor={subjectColor}
+            navigation={navigation}
           />
         </View>
 

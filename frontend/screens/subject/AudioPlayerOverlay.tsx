@@ -12,11 +12,12 @@ import { Audio } from 'expo-av';
 
 interface FileItem {
   id: number;
+  folderId: number;
   originalFileName: string;
-  storedFileName: string;
-  fileType: string;
-  filePath: string;
-  uploadedAt: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
 }
 
 interface AudioPlayerOverlayProps {

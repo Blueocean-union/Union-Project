@@ -10,6 +10,7 @@ import {
   Modal,
   Dimensions,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -18,32 +19,31 @@ import * as Sharing from 'expo-sharing';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { SubjectStackParamList } from './SubjectStack';
 import AudioPlayerOverlay from './AudioPlayerOverlay';
 
 interface FileItem {
   id: number;
+  folderId: number;
   originalFileName: string;
-  storedFileName: string;
-  fileType: string;
-  filePath: string;
-  uploadedAt: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
 }
 
 interface SubjectFileStorageProps {
   subjectId: number;
   folderId: number;
   subjectColor: string;
+  navigation: any;
 }
 
 export default function SubjectFileStorage({ 
   subjectId,
   folderId,
-  subjectColor
+  subjectColor,
+  navigation
 }: SubjectFileStorageProps) {
-  const navigation = useNavigation<NativeStackNavigationProp<SubjectStackParamList>>();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -68,20 +68,35 @@ export default function SubjectFileStorage({
       
       const response = await api.get(`/api/files/folder/${folderId}`);
       console.log('📡 파일 목록 API 응답:', response.data);
-      setFiles(response.data);
+      
+      // API 응답이 items 배열 구조인 경우 처리
+      const filesData = response.data.items || response.data;
+      
+      // 삭제된 파일 필터링 (deleted: true인 파일 제외)
+      const activeFiles = filesData.filter((file: FileItem) => !file.deleted);
+      console.log('📁 활성 파일 목록:', activeFiles);
+      
+      setFiles(activeFiles);
     } catch (error: any) {
       console.error('❌ 파일 목록 조회 실패:', error);
       console.error('❌ 에러 상세:', error.response?.data || error.message);
-      Alert.alert('오류', '파일 목록을 불러올 수 없습니다.');
+      
+      if (error.response?.status === 401) {
+        Alert.alert('권한 오류', '이 폴더에 접근할 권한이 없습니다. 폴더 ID를 확인해주세요.');
+      } else {
+        Alert.alert('오류', '파일 목록을 불러올 수 없습니다.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // 파일 업로드
+  // 파일 업로드 (Presigned URL 방식)
   const uploadFile = async () => {
     try {
       console.log('🔄 파일 업로드 시작');
+      console.log('📁 사용 중인 폴더 ID:', folderId);
+      
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'audio/*', 'video/*'],
         copyToCacheDirectory: true,
@@ -96,42 +111,135 @@ export default function SubjectFileStorage({
         const token = await AsyncStorage.getItem('accessToken');
         console.log('🔑 토큰 상태:', token ? '존재함' : '없음');
 
-        const formData = new FormData();
-        formData.append('file', {
-          uri: file.uri,
-          type: file.mimeType || 'application/octet-stream',
-          name: file.name,
-        } as any);
-        formData.append('folderId', folderId.toString());
-
-        console.log('📤 FormData 생성 완료, 업로드 시작...');
+        // 1단계: Presigned URL 발급
+        console.log('📤 1단계: Presigned URL 발급 중...');
         
-        // fetch API 사용 (multipart 요청에 더 안정적)
-        const response = await fetch('http://52.78.209.115:8080/api/files', {
+        // 파일 크기 가져오기
+        let fileSize = 0;
+        if (Platform.OS === 'web') {
+          const response = await fetch(file.uri);
+          const arrayBuffer = await response.arrayBuffer();
+          fileSize = arrayBuffer.byteLength;
+        } else {
+          const fileInfo = await FileSystem.getInfoAsync(file.uri);
+          fileSize = (fileInfo as any).size || 0;
+        }
+        
+        const presignResponse = await fetch('http://52.78.209.115:8080/api/files/presign', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            // Content-Type은 설정하지 않음 (브라우저가 자동으로 boundary 설정)
+            'Content-Type': 'application/json',
           },
-          body: formData,
+          body: JSON.stringify({
+            folderId: folderId,
+            originalName: file.name,
+            contentType: file.mimeType || 'application/octet-stream',
+            size: fileSize
+          }),
         });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const responseData = await response.json();
 
-        console.log('📡 업로드 API 응답:', responseData);
-        if (responseData) {
-          Alert.alert('성공', '파일이 업로드되었습니다.');
-          fetchFiles(); // 파일 목록 새로고침
+        if (!presignResponse.ok) {
+          if (presignResponse.status === 401) {
+            throw new Error(`권한 오류: 이 폴더에 파일을 업로드할 권한이 없습니다. (폴더 ID: ${folderId})`);
+          }
+          throw new Error(`Presigned URL 발급 실패: ${presignResponse.status}`);
         }
+
+        const presignData = await presignResponse.json();
+        console.log('📡 Presigned URL 응답:', presignData);
+
+        // 2단계: 파일 업로드
+        console.log('📤 2단계: 파일 업로드 중...');
+        
+        if (Platform.OS === 'web') {
+          // 웹 환경: 기존 서버 업로드 방식 사용 (CORS 문제 해결)
+          const formData = new FormData();
+          formData.append('file', {
+            uri: file.uri,
+            type: file.mimeType || 'application/octet-stream',
+            name: file.name,
+          } as any);
+          formData.append('folderId', folderId.toString());
+
+          const uploadResponse = await fetch('http://52.78.209.115:8080/api/files', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`파일 업로드 실패: ${uploadResponse.status}`);
+          }
+
+          console.log('📡 파일 업로드 완료 (웹 - 서버 직접)');
+        } else {
+          // 모바일 환경: Presigned URL로 직접 업로드
+          const base64 = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          // Base64를 Uint8Array로 변환
+          const byteCharacters = atob(base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const fileData = new Uint8Array(byteNumbers);
+          
+          const uploadResponse = await fetch(presignData.url, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.mimeType || 'application/octet-stream',
+            },
+            body: fileData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`파일 업로드 실패: ${uploadResponse.status}`);
+          }
+
+          console.log('📡 파일 업로드 완료 (직접)');
+        }
+
+        // 3단계: 업로드 확정 (모바일 환경에서만)
+        if (Platform.OS !== 'web') {
+          console.log('📤 3단계: 업로드 확정 중...');
+          console.log('📡 Presigned URL 응답 데이터:', presignData);
+          
+          const confirmResponse = await fetch('http://52.78.209.115:8080/api/files/confirm', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              folderId: folderId,
+              objectKey: presignData.objectKey,
+              originalFileName: file.name,
+              contentType: file.mimeType || 'application/octet-stream',
+              size: fileSize
+            }),
+          });
+
+          if (!confirmResponse.ok) {
+            throw new Error(`업로드 확정 실패: ${confirmResponse.status}`);
+          }
+
+          const confirmData = await confirmResponse.json();
+          console.log('📡 업로드 확정 응답:', confirmData);
+        } else {
+          console.log('📡 웹 환경: 업로드 확정 단계 건너뜀');
+        }
+
+        Alert.alert('성공', '파일이 업로드되었습니다.');
+        fetchFiles(); // 파일 목록 새로고침
       }
     } catch (error: any) {
       console.error('❌ 파일 업로드 실패:', error);
-      console.error('❌ 에러 상세:', error.response?.data || error.message);
-      Alert.alert('오류', '파일 업로드에 실패했습니다.');
+      console.error('❌ 에러 상세:', error.message);
+      Alert.alert('오류', `파일 업로드에 실패했습니다.\n\n${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -143,27 +251,42 @@ export default function SubjectFileStorage({
       setLoading(true);
       
       // 로컬 캐시 확인
-      const localPath = `${FileSystem.cacheDirectory}${file.storedFileName}`;
+      const localPath = `${FileSystem.cacheDirectory}${file.id}_${file.originalFileName}`;
       const fileExists = await FileSystem.getInfoAsync(localPath);
       
       let fileUri = localPath;
       
       // 로컬에 없으면 다운로드
       if (!fileExists.exists) {
-        const downloadUrl = `http://52.78.209.115:8080/api/files/${file.id}/download`;
+        // 1단계: 다운로드 Presigned URL 발급
+        const token = await AsyncStorage.getItem('accessToken');
+        const downloadUrlResponse = await fetch(`http://52.78.209.115:8080/api/files/${file.id}/download-url`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!downloadUrlResponse.ok) {
+          throw new Error(`다운로드 URL 발급 실패: ${downloadUrlResponse.status}`);
+        }
+
+        const downloadUrlData = await downloadUrlResponse.json();
+        const downloadUrl = downloadUrlData.url;
+        
         const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
         fileUri = downloadResult.uri;
       }
 
       // 파일 타입에 따라 다른 화면으로 이동
-      if (file.fileType === '.pdf') {
+      if (file.contentType === 'application/pdf') {
         // PDF 뷰어 화면으로 이동
         navigation.navigate('PdfViewerScreen', {
           file: file,
           fileUri: fileUri,
           subjectColor: subjectColor
         });
-      } else if (file.fileType === '.mp3' || file.fileType === '.wav' || file.fileType === '.m4a' || file.fileType === '.mp4') {
+      } else if (file.contentType.includes('audio/') || file.contentType.includes('video/')) {
         // 음성/비디오 플레이어 화면으로 이동
         navigation.navigate('AudioPlayerScreen', {
           file: file,
@@ -230,11 +353,15 @@ export default function SubjectFileStorage({
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('🗑️ 파일 삭제 시작, fileId:', fileId);
               await api.delete(`/api/files/${fileId}`);
+              console.log('✅ 파일 삭제 성공');
               Alert.alert('성공', '파일이 삭제되었습니다.');
-              fetchFiles();
+              console.log('🔄 파일 목록 새로고침 시작');
+              await fetchFiles();
+              console.log('✅ 파일 목록 새로고침 완료');
             } catch (error: any) {
-              console.error('파일 삭제 실패:', error);
+              console.error('❌ 파일 삭제 실패:', error);
               Alert.alert('오류', '파일 삭제에 실패했습니다.');
             }
           },
@@ -244,15 +371,15 @@ export default function SubjectFileStorage({
   };
 
   // 파일 아이콘 결정
-  const getFileIcon = (fileType: string) => {
-    if (fileType === '.pdf') return 'document-text';
-    if (fileType === '.mp3' || fileType === '.wav' || fileType === '.m4a' || fileType === '.mp4') return 'mic';
+  const getFileIcon = (contentType: string) => {
+    if (contentType === 'application/pdf') return 'document-text';
+    if (contentType.includes('audio/') || contentType.includes('video/')) return 'mic';
     return 'document';
   };
 
   // 파일 타입 검증
-  const isValidFileType = (fileType: string) => {
-    return fileType === '.pdf' || fileType === '.mp3' || fileType === '.wav' || fileType === '.m4a' || fileType === '.mp4';
+  const isValidFileType = (contentType: string) => {
+    return contentType === 'application/pdf' || contentType.includes('audio/') || contentType.includes('video/');
   };
 
   // 파일 크기 포맷팅
@@ -299,29 +426,49 @@ export default function SubjectFileStorage({
   const handleFileTouch = async (file: FileItem) => {
     console.log(`[${file.originalFileName}] 터치됨`);
     
-    if (!isValidFileType(file.fileType)) {
-      Alert.alert('알림', 'PDF 파일이나 MP4 파일을 넣어주세요.');
+    if (!isValidFileType(file.contentType)) {
+      Alert.alert('알림', 'PDF 파일이나 오디오/비디오 파일을 넣어주세요.');
       return;
     }
 
     // 파일 타입에 따라 적절한 화면으로 이동
-    if (file.fileType === '.pdf') {
+    if (file.contentType === 'application/pdf') {
+      // 웹에서는 PDF 뷰어를 사용할 수 없음
+      if (Platform.OS === 'web') {
+        Alert.alert('알림', '웹에서는 PDF 뷰어를 사용할 수 없습니다. 모바일에서 확인해주세요.');
+        return;
+      }
       // PDF 파일은 SubjectStack 내에서 처리
       openFile(file);
-    } else if (file.fileType === '.mp3' || file.fileType === '.wav' || file.fileType === '.m4a' || file.fileType === '.mp4') {
+    } else if (file.contentType.includes('audio/') || file.contentType.includes('video/')) {
       // 오디오/비디오 파일은 오버레이로 처리
       try {
         setLoading(true);
         
         // 로컬 캐시 확인
-        const localPath = `${FileSystem.cacheDirectory}${file.storedFileName}`;
+        const localPath = `${FileSystem.cacheDirectory}${file.id}_${file.originalFileName}`;
         const fileExists = await FileSystem.getInfoAsync(localPath);
         
         let fileUri = localPath;
         
         // 로컬에 없으면 다운로드
         if (!fileExists.exists) {
-          const downloadUrl = `http://52.78.209.115:8080/api/files/${file.id}/download`;
+          // 1단계: 다운로드 Presigned URL 발급
+          const token = await AsyncStorage.getItem('accessToken');
+          const downloadUrlResponse = await fetch(`http://52.78.209.115:8080/api/files/${file.id}/download-url`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (!downloadUrlResponse.ok) {
+            throw new Error(`다운로드 URL 발급 실패: ${downloadUrlResponse.status}`);
+          }
+
+          const downloadUrlData = await downloadUrlResponse.json();
+          const downloadUrl = downloadUrlData.url;
+          
           const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
           fileUri = downloadResult.uri;
         }
@@ -388,7 +535,7 @@ export default function SubjectFileStorage({
             >
               <View style={styles.fileInfo}>
                 <Ionicons 
-                  name={getFileIcon(file.fileType)} 
+                  name={getFileIcon(file.contentType)} 
                   size={24} 
                   color={subjectColor} 
                 />

@@ -9,33 +9,37 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Pdf from 'react-native-pdf';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../MainTabs';
+
+// 웹에서는 react-native-pdf를 import하지 않음
+let Pdf: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    Pdf = require('react-native-pdf').default;
+  } catch (error) {
+    console.warn('react-native-pdf를 로드할 수 없습니다:', error);
+  }
+}
 
 interface FileItem {
   id: number;
+  folderId: number;
   originalFileName: string;
-  storedFileName: string;
-  fileType: string;
-  filePath: string;
-  uploadedAt: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
 }
 
-interface PdfViewerScreenProps {
-  route: {
-    params: {
-      file: FileItem;
-      fileUri: string;
-      subjectColor: string;
-    };
-  };
-  navigation: any;
-}
+type Props = NativeStackScreenProps<SubjectStackParamList, 'PdfViewerScreen'>;
 
-export default function PdfViewerScreen({ route, navigation }: PdfViewerScreenProps) {
+export default function PdfViewerScreen({ route, navigation }: Props) {
   const { file, fileUri, subjectColor } = route.params;
   const [loading, setLoading] = useState(true);
   const [annotations, setAnnotations] = useState<any[]>([]);
@@ -199,18 +203,45 @@ export default function PdfViewerScreen({ route, navigation }: PdfViewerScreenPr
             <ActivityIndicator size="large" color={subjectColor} />
             <Text style={styles.loadingText}>PDF를 불러오는 중...</Text>
           </View>
-        ) : (
+        ) : Platform.OS === 'web' ? (
+          <View style={styles.webPdfContainer}>
+            <Text style={styles.webPdfText}>
+              웹에서는 PDF 뷰어를 사용할 수 없습니다.
+            </Text>
+            <Text style={styles.webPdfText}>
+              파일명: {file.originalFileName}
+            </Text>
+            <TouchableOpacity
+              style={[styles.downloadButton, { backgroundColor: subjectColor }]}
+              onPress={() => {
+                // 웹에서 PDF 다운로드
+                if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                  const link = document.createElement('a');
+                  link.href = fileUri;
+                  link.download = file.originalFileName;
+                  link.click();
+                }
+              }}
+            >
+              <Text style={styles.downloadButtonText}>PDF 다운로드</Text>
+            </TouchableOpacity>
+          </View>
+        ) : Pdf ? (
           <Pdf
             source={{ uri: fileUri }}
             style={styles.pdf}
-            onLoadComplete={(numberOfPages) => {
+            onLoadComplete={(numberOfPages: number) => {
               console.log(`PDF 로드 완료: ${numberOfPages}페이지`);
             }}
-            onError={(error) => {
+            onError={(error: any) => {
               console.error('PDF 로드 오류:', error);
               Alert.alert('오류', 'PDF를 불러올 수 없습니다.');
             }}
           />
+        ) : (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>PDF 뷰어를 사용할 수 없습니다.</Text>
+          </View>
         )}
         
         {/* 필기 오버레이 (향후 구현) */}
@@ -295,6 +326,40 @@ const styles = StyleSheet.create({
   pdfContainer: {
     flex: 1,
     position: 'relative',
+  },
+  webPdfContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  webPdfText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  downloadButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  downloadButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff6b6b',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
