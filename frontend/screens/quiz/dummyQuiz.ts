@@ -1,16 +1,23 @@
-// screens/quiz/dummyQuiz.ts
-import { Quiz } from "../../types/quiz";
-const dummy: Quiz = {
-  id: "dummy",
-  title: "샘플 퀴즈",
-  questions: [
-    {
-      id: "1",
-      text: "2+2?",
-      choices: [{ text: "3" }, { text: "4" }, { text: "5" }],
-      answer: 1,
-      explanation: "2+2=4",
-    },
-  ],
+export type Choice = {
+  id: string;
+  text: string;
 };
-export default dummy;
+
+export type Question = {
+  id: string;
+  text: string;
+  choices: Choice[];
+  answer: number;
+  explanation?: string;
+};
+
+export type Quiz = {
+  id: string;
+  title: string;
+  questions: Question[];
+};
+
+// API 응답 최상위 타입
+export type RawQuizResponse = {
+  items: Quiz[];
+};

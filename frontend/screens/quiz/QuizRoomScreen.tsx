@@ -1,131 +1,139 @@
-// screens/quiz/QuizRoomScreen.tsx
 import React, { useState } from "react";
-import {
-  View, Text, Pressable, ScrollView, StyleSheet, SafeAreaView
-} from "react-native";
-import { Quiz, QuizQuestion } from "../../types/quiz";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { Quiz, Question, Choice } from "../../types/quiz";
 
-type Props = { route: any; navigation: any };
-const ABC = ["A", "B", "C", "D", "E", "F", "G"];
+type Props = {
+  quiz: Quiz;
+};
 
-export default function QuizRoomScreen({ route }: Props) {
-  const { quiz } = route.params ?? {};
-  const [answers, setAnswers] = useState<Record<string, number | undefined>>({});
+const QuizRoomScreen: React.FC<Props> = ({ quiz }) => {
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number }>({});
 
-  if (!quiz)
-    return (
-      <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text>퀴즈 불러오는 중…</Text>
-      </SafeAreaView>
-    );
-
-  const onChoose = (q: QuizQuestion, idx: number) =>
-    setAnswers((s) => ({ ...s, [q.id]: idx }));
-
-  const isCorrect = (q: QuizQuestion, idx?: number) =>
-    typeof q.answer === "number" && idx !== undefined && q.answer === idx;
-
-  const Star = ({ n = 0 }: { n?: number }) => (
-    <Text style={{ color: "#9CA3AF", fontSize: 12 }}>
-      {"★".repeat(n || 0)}{"☆".repeat(Math.max(0, 5 - (n || 0)))}
-    </Text>
-  );
+  const handleSelect = (question: Question, choice: Choice, choiceIndex: number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [question.id]: choiceIndex,
+    }));
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={S.headerWrap}>
-          <Text style={S.title}>{quiz.title}</Text>
-        </View>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>{quiz.title}</Text>
 
-        {quiz.questions.map((q, qi) => {
-          const selected = answers[q.id];
-          const correct = isCorrect(q, selected);
+      {quiz.questions.map((q: Question, qi: number) => {
+        const selected = selectedAnswers[q.id];
+        return (
+          <View key={qi} style={styles.card}>
+            <Text style={styles.question}>
+              Q{qi + 1}. {q.text}
+            </Text>
 
-          return (
-            <View key={q.id} style={S.card}>
-              <View style={S.cardHead}>
-                <Text style={S.qTitle}>
-                  {`Q${qi + 1}. `}{q.text}
+            {q.choices.map((c: Choice, ci: number) => {
+              const isSelected = selected === ci;
+              const isCorrect = q.answer === ci;
+
+              return (
+                <TouchableOpacity
+                  key={ci}
+                  style={[
+                    styles.choice,
+                    isSelected && (isCorrect ? styles.correctChoice : styles.incorrectChoice),
+                  ]}
+                  onPress={() => handleSelect(q, c, ci)}
+                >
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      isSelected && (isCorrect ? styles.correctText : styles.incorrectText),
+                    ]}
+                  >
+                    {String.fromCharCode(65 + ci)}. {c.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* 정답 및 해설 */}
+            {selected !== undefined && (
+              <View style={styles.explanationBox}>
+                <Text style={styles.explanation}>
+                  정답: {String.fromCharCode(65 + q.answer)}. {q.choices[q.answer].text}
                 </Text>
-                <Star n={q.difficulty ?? 0} />
+                {q.explanation && <Text style={styles.explanation}>{q.explanation}</Text>}
               </View>
-
-              <View style={{ marginTop: 8 }}>
-                {q.choices.map((c, ci) => {
-                  const chosen = selected === ci;
-                  const showRight = typeof q.answer === "number" && q.answer === ci && selected !== undefined;
-                  const showWrong = chosen && !showRight;
-
-                  return (
-                    <Pressable
-                      key={ci}
-                      onPress={() => onChoose(q, ci)}
-                      style={[
-                        S.choice,
-                        chosen && { borderColor: "#3955FF" },
-                        showRight && { backgroundColor: "#EDF5FF", borderColor: "#3955FF" },
-                        showWrong && { backgroundColor: "#FEF2F2", borderColor: "#EF4444" },
-                      ]}
-                    >
-                      <Text style={[S.choiceLabel, chosen && { color: "#3955FF" }]}>
-                        {ABC[ci] || `${ci + 1}`}
-                      </Text>
-                      <Text style={S.choiceText}>{c.text}</Text>
-
-                      {showRight && <Text style={S.markRight}>✔</Text>}
-                      {showWrong && <Text style={S.markWrong}>✖</Text>}
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {/* 선택한 경우, 문제 바로 아래 해설/출처 표시 */}
-              {selected !== undefined && (
-                <View style={S.explainBox}>
-                  {typeof q.answer === "number" && (
-                    <Text style={S.explainTitle}>
-                      {selected === q.answer ? "정답입니다! 🎉" : `오답입니다. 정답: ${ABC[q.answer] ?? q.answer + 1}`}
-                    </Text>
-                  )}
-                  {!!q.explanation && (
-                    <Text style={S.explainText}>{q.explanation}</Text>
-                  )}
-                  {!!q.source && (
-                    <Text style={S.explainSource}>{`출처 : ${q.source}`}</Text>
-                  )}
-                </View>
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+            )}
+          </View>
+        );
+      })}
+    </ScrollView>
   );
-}
+};
 
-const S = StyleSheet.create({
-  headerWrap: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 10, backgroundColor: "#F3F4F6" },
-  title: { fontSize: 30, fontWeight: "900", color: "#1F2937", letterSpacing: 1 },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#f8f9fa",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
   card: {
-    marginHorizontal: 16, marginTop: 16, padding: 14, borderRadius: 16,
-    backgroundColor: "white", borderWidth: 1, borderColor: "#E5E7EB",
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  cardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  qTitle: { fontSize: 18, fontWeight: "800", color: "#111827", flex: 1, lineHeight: 24 },
+  question: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   choice: {
-    marginTop: 8, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB",
-    flexDirection: "row", alignItems: "center", gap: 10, position: "relative",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 8,
   },
-  choiceLabel: { width: 22, textAlign: "center", fontWeight: "800", color: "#6B7280" },
-  choiceText: { flex: 1, color: "#111827" },
-  markRight: { position: "absolute", right: 12, top: 10, color: "#16A34A", fontSize: 16, fontWeight: "900" },
-  markWrong: { position: "absolute", right: 12, top: 10, color: "#EF4444", fontSize: 16, fontWeight: "900" },
-  explainBox: {
-    marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB",
+  choiceText: {
+    fontSize: 15,
   },
-  explainTitle: { fontWeight: "800", marginBottom: 6, color: "#111827" },
-  explainText: { color: "#374151", lineHeight: 20 },
-  explainSource: { marginTop: 6, color: "#9CA3AF", fontSize: 12, textAlign: "right" },
+  correctChoice: {
+    backgroundColor: "#e6f7e6",
+    borderColor: "#28a745",
+  },
+  incorrectChoice: {
+    backgroundColor: "#fdecea",
+    borderColor: "#dc3545",
+  },
+  correctText: {
+    color: "#28a745",
+    fontWeight: "bold",
+  },
+  incorrectText: {
+    color: "#dc3545",
+    fontWeight: "bold",
+  },
+  explanationBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#f1f3f5",
+  },
+  explanation: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 4,
+  },
 });
+
+export default QuizRoomScreen;
