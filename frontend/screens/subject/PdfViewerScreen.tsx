@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Text as SvgText, G } from 'react-native-svg';
-import * as FileSystem from 'expo-file-system';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import api from '../../libs/api/axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SubjectStackParamList } from '../MainTabs';
@@ -76,7 +75,16 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
   const loadAnnotations = async () => {
     try {
       const response = await api.get(`/api/annotations/${file.id}`);
-      setDrawingPaths(response.data || []);
+      console.log('📝 필기 데이터 응답:', response.data);
+      
+      // 응답 데이터가 배열인지 확인하고, 아니면 빈 배열로 설정
+      if (Array.isArray(response.data)) {
+        setDrawingPaths(response.data);
+      } else if (response.data && Array.isArray(response.data.annotations)) {
+        setDrawingPaths(response.data.annotations);
+      } else {
+        setDrawingPaths([]);
+      }
     } catch (error) {
       console.log('필기 데이터 없음 또는 로드 실패:', error);
       setDrawingPaths([]);
@@ -157,7 +165,8 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
       tool: currentTool,
     };
     
-    const updatedPaths = [...drawingPaths, newPath];
+    const currentPaths = Array.isArray(drawingPaths) ? drawingPaths : [];
+    const updatedPaths = [...currentPaths, newPath];
     setDrawingPaths(updatedPaths);
     saveAnnotations(updatedPaths);
     
@@ -325,7 +334,7 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
                 height="100%"
               >
                 {/* 저장된 필기 경로들 */}
-                {drawingPaths.map((path) => (
+                {Array.isArray(drawingPaths) && drawingPaths.map((path) => (
                   <Path
                     key={path.id}
                     d={path.path}
