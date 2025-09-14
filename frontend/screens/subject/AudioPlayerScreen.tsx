@@ -116,7 +116,7 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
       const formData = new FormData();
       formData.append('file', {
         uri: fileUri,
-        type: file.fileType === '.mp3' ? 'audio/mpeg' : 'audio/mp4',
+        type: file.contentType || 'audio/mpeg',
         name: file.originalFileName,
       } as any);
 
@@ -250,7 +250,7 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
           <Ionicons name="musical-notes" size={48} color={subjectColor} />
           <Text style={styles.fileName}>{file.originalFileName}</Text>
           <Text style={styles.fileMeta}>
-            {new Date(file.uploadedAt).toLocaleDateString()} • {file.fileType}
+            {new Date(file.updatedAt).toLocaleDateString()} • {file.contentType}
           </Text>
         </View>
 

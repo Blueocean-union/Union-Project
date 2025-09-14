@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,22 +10,16 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  PanResponder,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Circle, Text as SvgText, G } from 'react-native-svg';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SubjectStackParamList } from '../MainTabs';
-
-// 웹에서는 react-native-pdf를 import하지 않음
-let Pdf: any = null;
-if (Platform.OS !== 'web') {
-  try {
-    Pdf = require('react-native-pdf').default;
-  } catch (error) {
-    console.warn('react-native-pdf를 로드할 수 없습니다:', error);
-  }
-}
 
 interface FileItem {
   id: number;
@@ -37,35 +31,65 @@ interface FileItem {
   deleted: boolean;
 }
 
+interface DrawingPath {
+  id: string;
+  path: string;
+  color: string;
+  width: number;
+  tool: string;
+}
+
+interface DrawingPoint {
+  x: number;
+  y: number;
+}
+
 type Props = NativeStackScreenProps<SubjectStackParamList, 'PdfViewerScreen'>;
 
 export default function PdfViewerScreen({ route, navigation }: Props) {
   const { file, fileUri, subjectColor } = route.params;
   const [loading, setLoading] = useState(true);
-  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [pdfImageUri, setPdfImageUri] = useState<string>('');
+  const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentTool, setCurrentTool] = useState('pen');
   const [currentColor, setCurrentColor] = useState('#ff0000');
   const [currentWidth, setCurrentWidth] = useState(2);
+  const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
+  const svgRef = useRef<any>(null);
+
+  // PDF를 이미지로 변환 (간단한 플레이스홀더)
+  const convertPdfToImage = async () => {
+    try {
+      // 실제로는 PDF를 이미지로 변환하는 로직이 필요
+      // 현재는 파일 URI를 그대로 사용 (개발용)
+      setPdfImageUri(fileUri);
+      setLoading(false);
+    } catch (error) {
+      console.error('PDF 변환 실패:', error);
+      setLoading(false);
+    }
+  };
 
   // 필기 데이터 로드
   const loadAnnotations = async () => {
     try {
       const response = await api.get(`/api/annotations/${file.id}`);
-      setAnnotations(response.data || []);
+      setDrawingPaths(response.data || []);
     } catch (error) {
       console.log('필기 데이터 없음 또는 로드 실패:', error);
-      setAnnotations([]);
+      setDrawingPaths([]);
     }
   };
 
   // 필기 데이터 저장
-  const saveAnnotations = async (newAnnotations: any[]) => {
+  const saveAnnotations = async (newPaths: DrawingPath[]) => {
     try {
       await api.post(`/api/annotations/${file.id}`, {
-        annotations: newAnnotations
+        annotations: newPaths
       });
-      setAnnotations(newAnnotations);
+      setDrawingPaths(newPaths);
     } catch (error) {
       console.error('필기 데이터 저장 실패:', error);
       Alert.alert('오류', '필기를 저장할 수 없습니다.');
@@ -87,6 +111,61 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
     setCurrentWidth(width);
   };
 
+  // PDF 열기
+  const openPdf = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(fileUri, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        controlsColor: '#007AFF',
+        showTitle: true,
+        toolbarColor: subjectColor,
+      });
+    } catch (error) {
+      console.error('PDF 열기 실패:', error);
+      Alert.alert('오류', 'PDF를 열 수 없습니다.');
+    }
+  };
+
+  // 그리기 시작
+  const startDrawing = (x: number, y: number) => {
+    setIsDrawing(true);
+    setCurrentPoints([{ x, y }]);
+    setCurrentPath(`M${x},${y}`);
+  };
+
+  // 그리기 중
+  const continueDrawing = (x: number, y: number) => {
+    if (!isDrawing) return;
+    
+    const newPoints = [...currentPoints, { x, y }];
+    setCurrentPoints(newPoints);
+    
+    if (currentTool === 'pen' || currentTool === 'highlighter') {
+      setCurrentPath(prev => `${prev} L${x},${y}`);
+    }
+  };
+
+  // 그리기 종료
+  const endDrawing = () => {
+    if (!isDrawing) return;
+    
+    const newPath: DrawingPath = {
+      id: Date.now().toString(),
+      path: currentPath,
+      color: currentColor,
+      width: currentWidth,
+      tool: currentTool,
+    };
+    
+    const updatedPaths = [...drawingPaths, newPath];
+    setDrawingPaths(updatedPaths);
+    saveAnnotations(updatedPaths);
+    
+    setIsDrawing(false);
+    setCurrentPath('');
+    setCurrentPoints([]);
+  };
+
   // 필기 지우기
   const clearAnnotations = () => {
     Alert.alert(
@@ -98,7 +177,7 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
           text: '지우기',
           style: 'destructive',
           onPress: () => {
-            setAnnotations([]);
+            setDrawingPaths([]);
             saveAnnotations([]);
           },
         },
@@ -106,9 +185,26 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
     );
   };
 
+  // PanResponder 설정
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      startDrawing(locationX, locationY);
+    },
+    onPanResponderMove: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      continueDrawing(locationX, locationY);
+    },
+    onPanResponderRelease: () => {
+      endDrawing();
+    },
+  });
+
   useEffect(() => {
     loadAnnotations();
-    setLoading(false);
+    convertPdfToImage();
   }, [file.id]);
 
   return (
@@ -196,59 +292,79 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
         </ScrollView>
       </View>
 
-      {/* PDF 뷰어 */}
+      {/* PDF 뷰어 + 필기 기능 */}
       <View style={styles.pdfContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={subjectColor} />
             <Text style={styles.loadingText}>PDF를 불러오는 중...</Text>
           </View>
-        ) : Platform.OS === 'web' ? (
-          <View style={styles.webPdfContainer}>
-            <Text style={styles.webPdfText}>
-              웹에서는 PDF 뷰어를 사용할 수 없습니다.
-            </Text>
-            <Text style={styles.webPdfText}>
-              파일명: {file.originalFileName}
-            </Text>
-            <TouchableOpacity
-              style={[styles.downloadButton, { backgroundColor: subjectColor }]}
-              onPress={() => {
-                // 웹에서 PDF 다운로드
-                if (Platform.OS === 'web' && typeof document !== 'undefined') {
-                  const link = document.createElement('a');
-                  link.href = fileUri;
-                  link.download = file.originalFileName;
-                  link.click();
-                }
-              }}
-            >
-              <Text style={styles.downloadButtonText}>PDF 다운로드</Text>
-            </TouchableOpacity>
-          </View>
-        ) : Pdf ? (
-          <Pdf
-            source={{ uri: fileUri }}
-            style={styles.pdf}
-            onLoadComplete={(numberOfPages: number) => {
-              console.log(`PDF 로드 완료: ${numberOfPages}페이지`);
-            }}
-            onError={(error: any) => {
-              console.error('PDF 로드 오류:', error);
-              Alert.alert('오류', 'PDF를 불러올 수 없습니다.');
-            }}
-          />
         ) : (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>PDF 뷰어를 사용할 수 없습니다.</Text>
+          <View style={styles.drawingContainer} {...panResponder.panHandlers}>
+            {/* PDF 이미지 배경 */}
+            {pdfImageUri ? (
+              <Image
+                source={{ uri: pdfImageUri }}
+                style={styles.pdfImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={styles.pdfPlaceholder}>
+                <Ionicons name="document-text" size={80} color={subjectColor} />
+                <Text style={styles.pdfTitle}>{file.originalFileName}</Text>
+                <Text style={styles.pdfSubtitle}>PDF 파일을 불러오는 중...</Text>
+              </View>
+            )}
+            
+            {/* SVG 필기 오버레이 */}
+            <View style={styles.svgOverlay}>
+              <Svg
+                ref={svgRef}
+                style={styles.svg}
+                width="100%"
+                height="100%"
+              >
+                {/* 저장된 필기 경로들 */}
+                {drawingPaths.map((path) => (
+                  <Path
+                    key={path.id}
+                    d={path.path}
+                    stroke={path.color}
+                    strokeWidth={path.width}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                  />
+                ))}
+                
+                {/* 현재 그리는 경로 */}
+                {isDrawing && currentPath && (
+                  <Path
+                    d={currentPath}
+                    stroke={currentColor}
+                    strokeWidth={currentWidth}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={currentTool === 'highlighter' ? 0.5 : 1}
+                  />
+                )}
+                
+                {/* 현재 그리는 점들 (펜 도구용) */}
+                {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
+                  <Circle
+                    key={index}
+                    cx={point.x}
+                    cy={point.y}
+                    r={currentWidth / 2}
+                    fill={currentColor}
+                  />
+                ))}
+              </Svg>
+            </View>
           </View>
         )}
-        
-        {/* 필기 오버레이 (향후 구현) */}
-        <View style={styles.annotationOverlay}>
-          {/* 여기에 SVG 또는 Canvas 기반 필기 레이어 구현 */}
-          <Text style={styles.comingSoon}>필기 기능 (향후 구현)</Text>
-        </View>
       </View>
     </View>
   );
@@ -327,38 +443,43 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  webPdfContainer: {
+  drawingContainer: {
     flex: 1,
-    justifyContent: 'center',
+    position: 'relative',
+  },
+  pdfImage: {
+    width: '100%',
+    height: '100%',
+  },
+  svgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  svg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  pdfPlaceholder: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
   },
-  webPdfText: {
+  pdfTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  pdfSubtitle: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  downloadButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  downloadButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#ff6b6b',
+    marginTop: 8,
     textAlign: 'center',
   },
   loadingContainer: {
@@ -370,23 +491,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
-  },
-  pdf: {
-    flex: 1,
-    width: Dimensions.get('window').width,
-  },
-  annotationOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  comingSoon: {
-    fontSize: 16,
-    color: '#999',
-    fontStyle: 'italic',
   },
 });

@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
 import AudioPlayerOverlay from './AudioPlayerOverlay';
@@ -47,8 +47,6 @@ export default function SubjectFileStorage({
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [showFileActions, setShowFileActions] = useState(false);
   const [editingFileName, setEditingFileName] = useState(false);
@@ -280,12 +278,18 @@ export default function SubjectFileStorage({
 
       // 파일 타입에 따라 다른 화면으로 이동
       if (file.contentType === 'application/pdf') {
-        // PDF 뷰어 화면으로 이동
-        navigation.navigate('PdfViewerScreen', {
-          file: file,
-          fileUri: fileUri,
-          subjectColor: subjectColor
-        });
+        // 웹과 모바일을 판단해서 PDF 처리 방식 선택
+        if (Platform.OS === 'web') {
+          // 웹에서는 로그만 출력
+          console.log(`[${file.originalFileName}] 터치됨`);
+        } else {
+          // 모바일에서는 PDF 뷰어 화면으로 이동
+          navigation.navigate('PdfViewerScreen', {
+            file: file,
+            fileUri: fileUri,
+            subjectColor: subjectColor
+          });
+        }
       } else if (file.contentType.includes('audio/') || file.contentType.includes('video/')) {
         // 음성/비디오 플레이어 화면으로 이동
         navigation.navigate('AudioPlayerScreen', {
@@ -305,41 +309,7 @@ export default function SubjectFileStorage({
     }
   };
 
-  // 오디오 재생
-  const playAudio = async (fileUri: string) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: fileUri },
-        { shouldPlay: true }
-      );
-      
-      setSound(newSound);
-      setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-        }
-      });
-    } catch (error: any) {
-      console.error('오디오 재생 실패:', error);
-      Alert.alert('오류', '오디오를 재생할 수 없습니다.');
-    }
-  };
-
-  // 오디오 정지
-  const stopAudio = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      await sound.unloadAsync();
-      setSound(null);
-      setIsPlaying(false);
-    }
-  };
+  // 오디오 재생은 AudioPlayerOverlay에서 처리
 
   // 파일 삭제
   const deleteFile = async (fileId: number) => {
@@ -492,12 +462,6 @@ export default function SubjectFileStorage({
 
   useEffect(() => {
     fetchFiles();
-    
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, [folderId]);
 
   return (

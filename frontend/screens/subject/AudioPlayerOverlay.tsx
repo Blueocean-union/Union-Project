@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 
 interface FileItem {
   id: number;
@@ -33,56 +33,16 @@ export default function AudioPlayerOverlay({
   subjectColor, 
   onClose 
 }: AudioPlayerOverlayProps) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const player = useAudioPlayer(fileUri);
   const [isMinimized, setIsMinimized] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
 
-  // 오디오 로드
-  const loadAudio = async () => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: fileUri },
-        { shouldPlay: false }
-      );
-      
-      setSound(newSound);
-      setDuration((newSound as any).durationMillis || 0);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded) {
-          setPosition(status.positionMillis || 0);
-          setIsPlaying(status.isPlaying || false);
-          
-          if (status.didJustFinish) {
-            setIsPlaying(false);
-            setPosition(0);
-          }
-        }
-      });
-    } catch (error) {
-      console.error('오디오 로드 실패:', error);
-    }
-  };
-
   // 재생/일시정지
-  const togglePlayPause = async () => {
-    if (!sound) return;
-
-    try {
-      if (isPlaying) {
-        await sound.pauseAsync();
-      } else {
-        await sound.playAsync();
-      }
-    } catch (error) {
-      console.error('재생 제어 실패:', error);
+  const togglePlayPause = () => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
     }
   };
 
@@ -97,24 +57,16 @@ export default function AudioPlayerOverlay({
   };
 
   // 시간 포맷팅
-  const formatTime = (millis: number) => {
-    const minutes = Math.floor(millis / 60000);
-    const seconds = Math.floor((millis % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   // 진행률 계산
-  const progress = duration > 0 ? position / duration : 0;
+  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
 
-  useEffect(() => {
-    loadAudio();
-    
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [fileUri]);
+  // expo-audio는 자동으로 관리되므로 별도의 cleanup이 필요하지 않음
 
   const screenWidth = Dimensions.get('window').width;
   const overlayWidth = screenWidth * 0.8;
@@ -152,7 +104,7 @@ export default function AudioPlayerOverlay({
             onPress={togglePlayPause}
           >
             <Ionicons 
-              name={isPlaying ? "pause" : "play"} 
+              name={player.playing ? "pause" : "play"} 
               size={16} 
               color="white" 
             />
@@ -182,14 +134,14 @@ export default function AudioPlayerOverlay({
           <View style={styles.controls}>
             <TouchableOpacity style={styles.controlButton} onPress={togglePlayPause}>
               <Ionicons 
-                name={isPlaying ? "pause" : "play"} 
+                name={player.playing ? "pause" : "play"} 
                 size={24} 
                 color="white" 
               />
             </TouchableOpacity>
             
             <View style={styles.progressContainer}>
-              <Text style={styles.timeText}>{formatTime(position)}</Text>
+              <Text style={styles.timeText}>{formatTime(player.currentTime)}</Text>
               <View style={styles.progressBar}>
                 <View 
                   style={[
@@ -198,7 +150,7 @@ export default function AudioPlayerOverlay({
                   ]} 
                 />
               </View>
-              <Text style={styles.timeText}>{formatTime(duration)}</Text>
+              <Text style={styles.timeText}>{formatTime(player.duration)}</Text>
             </View>
           </View>
         </View>
