@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -40,71 +40,24 @@ interface TranscriptionResult {
 
 export default function AudioPlayerScreen({ route, navigation }: Props) {
   const { file, fileUri, subjectColor } = route.params;
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const player = useAudioPlayer(fileUri);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
   const [showTranscription, setShowTranscription] = useState(false);
   const [transcriptionPdf, setTranscriptionPdf] = useState<string | null>(null);
 
-  // 오디오 로드
-  const loadAudio = async () => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: fileUri },
-        { shouldPlay: false }
-      );
-      
-      setSound(newSound);
-      setDuration((newSound as any).durationMillis || 0);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded) {
-          setPosition(status.positionMillis || 0);
-          setIsPlaying(status.isPlaying || false);
-          
-          if (status.didJustFinish) {
-            setIsPlaying(false);
-            setPosition(0);
-          }
-        }
-      });
-    } catch (error) {
-      console.error('오디오 로드 실패:', error);
-      Alert.alert('오류', '오디오를 불러올 수 없습니다.');
-    }
-  };
-
   // 재생/일시정지
-  const togglePlayPause = async () => {
-    if (!sound) return;
-
-    try {
-      if (isPlaying) {
-        await sound.pauseAsync();
-      } else {
-        await sound.playAsync();
-      }
-    } catch (error) {
-      console.error('재생 제어 실패:', error);
+  const togglePlayPause = () => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
     }
   };
 
   // 위치 이동
-  const seekTo = async (position: number) => {
-    if (!sound) return;
-
-    try {
-      await sound.setPositionAsync(position);
-    } catch (error) {
-      console.error('위치 이동 실패:', error);
-    }
+  const seekTo = (position: number) => {
+    player.seekTo(position);
   };
 
   // AI 전사 요청
@@ -207,24 +160,16 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
   };
 
   // 시간 포맷팅
-  const formatTime = (millis: number) => {
-    const minutes = Math.floor(millis / 60000);
-    const seconds = Math.floor((millis % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   // 진행률 계산
-  const progress = duration > 0 ? position / duration : 0;
+  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
 
-  useEffect(() => {
-    loadAudio();
-    
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [fileUri]);
+  // expo-audio는 자동으로 관리되므로 별도의 cleanup이 필요하지 않음
 
   return (
     <View style={styles.container}>
@@ -256,7 +201,7 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
 
         {/* 진행률 바 */}
         <View style={styles.progressContainer}>
-          <Text style={styles.timeText}>{formatTime(position)}</Text>
+          <Text style={styles.timeText}>{formatTime(player.currentTime)}</Text>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
             <TouchableOpacity
@@ -264,7 +209,7 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
               onPress={() => {}} // 실제로는 드래그로 위치 변경
             />
           </View>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          <Text style={styles.timeText}>{formatTime(player.duration)}</Text>
         </View>
 
         {/* 컨트롤 버튼 */}
@@ -275,7 +220,7 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
           
           <TouchableOpacity style={styles.playButton} onPress={togglePlayPause}>
             <Ionicons 
-              name={isPlaying ? "pause" : "play"} 
+              name={player.playing ? "pause" : "play"} 
               size={32} 
               color="white" 
             />
