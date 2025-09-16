@@ -1,9 +1,14 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "strict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx"
-  }
+    "baseUrl": "./",
+    "paths": {
+      "@api/*": ["libs/api/*"],
+      "@screens/*": ["screens/*"],
+      "@components/*": ["components/*"]
+    },
+    "typeRoots": ["./frontend/types", "./node_modules/@types"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

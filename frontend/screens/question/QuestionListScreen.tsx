@@ -1,36 +1,64 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { QuestionStackParamList } from './MainTabs';
+import React, { useCallback, useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { listPosts, type Post } from '../../libs/api/posts';
 
-type Props = NativeStackScreenProps<QuestionStackParamList, 'QuestionList'>;
+interface RouteParams {
+  categoryId: number;
+  categoryName: string;
+}
 
-export default function QuestionListScreen({ route, navigation }: Props) {
-  // MainTabs 타입에 따라 두 형태 모두 허용
-  const { categoryId, category } = route.params ?? {};
+export default function QuestionListScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute();
+  const { categoryId, categoryName } = (route.params ?? {}) as RouteParams;
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const data = await listPosts(categoryId);
+      setPosts(data);
+    } catch (e) {
+      Alert.alert('오류', '질문 목록을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(useCallback(() => { loadPosts(); }, [categoryId]));
+
+  const renderItem = ({ item }: { item: Post }) => (
+    <TouchableOpacity
+      style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12, marginVertical: 8, elevation: 1 }}
+      onPress={() => navigation.navigate('QuestionDetail', { id: item.id })}
+    >
+      <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
+      <Text style={{ marginTop: 4, color: '#555' }}>
+        {item.writerName} · {new Date(item.createdAt).toLocaleDateString()}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>질문 목록</Text>
-
-      <View style={styles.info}>
-        <Text style={styles.label}>필터</Text>
-        <Text>
-          categoryId: {categoryId ?? '-'} / category: {category ? JSON.stringify(category) : '-'}
-        </Text>
+    <View style={{ flex: 1, padding: 24, backgroundColor: '#fff' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={28} color="black" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 28, fontWeight: 'bold', marginLeft: 16 }}>{categoryName}</Text>
       </View>
-
-      <Button
-        title="이 카테고리로 질문 작성"
-        onPress={() => navigation.navigate('QuestionCreate', { categoryId, category })}
-      />
+      {loading ? <ActivityIndicator size="large" color="#000" /> : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          ListEmptyComponent={<Text style={{ marginTop: 16, color: '#555' }}>게시물이 없습니다.</Text>}
+        />
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  info: { paddingVertical: 8, gap: 6, marginBottom: 12 },
-  label: { fontWeight: '600' },
-});

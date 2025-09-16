@@ -1,35 +1,50 @@
-// 질문방 CRUD (스웨거: /api/게시물)
+// frontend/libs/api/posts.ts
 import api from './api';
 
-export type Post = {
+export interface Post {
   id: number;
   title: string;
   content: string;
-  categoryName: string;
-  writerName: string;
+  categoryId: number;
+  // 화면에서 쓰는 필드들(옵셔널)
+  categoryName?: string;
+  writerName?: string;
   createdAt: string;
-};
-
-export async function listPosts(params: { categoryId: number }) {
-  const res = await api.get<Post[]>('/게시물', { params });
-  return res.data; // 배열 반환
+  updatedAt?: string;
 }
 
-export async function getPost(id: number) {
-  const res = await api.get<Post>(`/게시물/${id}`);
+/** 카테고리별 질문 목록 조회 */
+export async function listPosts(categoryId: number): Promise<Post[]> {
+  const res = await api.get('/api/posts', { params: { categoryId } });
   return res.data;
 }
 
-export async function createPost(body: { title: string; content: string; categoryId: number }) {
-  // 스웨거 예시: 응답이 생성된 ID (number)
-  const res = await api.post<number>('/게시물', body);
+/** 질문 상세 조회 */
+export async function getPost(id: number): Promise<Post> {
+  const res = await api.get(`/api/posts/${id}`);
   return res.data;
 }
 
-export async function updatePost(id: number, body: { title: string; content: string; categoryId: number }) {
-  await api.put(`/게시물/${id}`, body);
+/** 질문 생성 */
+export async function createPost(body: {
+  title: string;
+  content: string;
+  categoryId: number;
+}): Promise<Post> {
+  const res = await api.post('/api/posts', body);
+  return res.data;
 }
 
-export async function deletePost(id: number) {
-  await api.delete(`/게시물/${id}`);
+/** 질문 수정 */
+export async function updatePost(
+  id: number,
+  body: { title: string; content: string; categoryId: number }
+): Promise<Post> {
+  const res = await api.put(`/api/posts/${id}`, body);
+  return res.data;
+}
+
+/** 질문 삭제 */
+export async function deletePost(id: number): Promise<void> {
+  await api.delete(`/api/posts/${id}`);
 }

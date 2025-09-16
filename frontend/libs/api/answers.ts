@@ -1,32 +1,38 @@
-// 답변(댓글) API 래퍼
+// frontend/libs/api/answers.ts
 import api from './api';
 
-export type Answer = {
+export interface Answer {
   id: number;
   content: string;
   writerName: string;
   createdAt: string;
-};
+}
 
-// 목록: GET /api/댓글  (쿼리: postId)
-export async function listAnswers(postId: number) {
-  const res = await api.get<Answer[]>('/댓글', { params: { postId } });
+/** 답변 목록 */
+export async function listAnswers(postId: number): Promise<Answer[]> {
+  const res = await api.get('/api/comments', { params: { postId } });
   return res.data;
 }
 
-// 등록: POST /api/댓글  (쿼리: postId, 바디: { content })
-export async function createAnswer(postId: number, content: string) {
-  const res = await api.post<number>('/댓글', { content }, { params: { postId } });
-  // 서버가 생성 id를 반환한다고 스웨거에 보여서 number 반환 가정
+/** 답변 등록 */
+export async function createAnswer(
+  postId: number,
+  body: { content: string }
+): Promise<Answer> {
+  const res = await api.post('/api/comments', body, { params: { postId } });
   return res.data;
 }
 
-// 수정: PUT /api/댓글/{id}  (바디: { content })
-export async function updateAnswer(id: number, content: string) {
-  await api.put(`/댓글/${id}`, { content });
+/** 답변 수정 */
+export async function updateAnswer(
+  id: number,
+  body: { content: string }
+): Promise<Answer> {
+  const res = await api.put(`/api/comments/${id}`, body);
+  return res.data;
 }
 
-// 삭제: DELETE /api/댓글/{id}
-export async function deleteAnswer(id: number) {
-  await api.delete(`/댓글/${id}`);
+/** 답변 삭제 */
+export async function deleteAnswer(id: number): Promise<void> {
+  await api.delete(`/api/comments/${id}`);
 }

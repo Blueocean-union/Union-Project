@@ -1,31 +1,25 @@
-// 폴더 API 래퍼
-import api from './api';
+import api from './axios';
 
 export type Folder = {
   id: number;
   name: string;
-  parentId: number | null;
-  subfolders: string[]; // Swagger 예시 기준
+  createdAt: string;
 };
 
-// 하위 폴더 생성: POST /api/폴더  body: { parentId, name } -> number(새 ID)
-export async function createSubfolder(body: { parentId: number; name: string }) {
-  const res = await api.post<number>('/폴더', body);
+export async function listFolders(): Promise<Folder[]> {
+  const res = await api.get<Folder[]>('/api/folders');
   return res.data;
 }
 
-// 폴더 정보 조회: GET /api/폴더/{id}
-export async function getFolder(id: number) {
-  const res = await api.get<Folder>(`/폴더/${id}`);
+export async function createFolder(body: { name: string }): Promise<Folder> {
+  const res = await api.post<Folder>('/api/folders', body);
   return res.data;
 }
 
-// 폴더 이름 수정: PATCH /api/폴더/{id}  body: { newName }
-export async function renameFolder(id: number, newName: string) {
-  await api.patch(`/폴더/${id}`, { newName });
+export async function updateFolder(id: number, body: { name: string }): Promise<void> {
+  await api.put(`/api/folders/${id}`, body);
 }
 
-// 폴더 삭제: DELETE /api/폴더/{id}
-export async function deleteFolder(id: number) {
-  await api.delete(`/폴더/${id}`);
+export async function deleteFolder(id: number): Promise<void> {
+  await api.delete(`/api/folders/${id}`);
 }
