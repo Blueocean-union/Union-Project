@@ -3,13 +3,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Alert,
-  Modal,
-  Dimensions,
-  ScrollView,
   ActivityIndicator,
-  Platform,
   PanResponder,
   Image,
 } from 'react-native';
@@ -17,8 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Text as SvgText, G } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import api from '../../libs/api/axios';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SubjectStackParamList } from '../MainTabs';
 
 interface FileItem {
   id: number;
@@ -43,17 +36,26 @@ interface DrawingPoint {
   y: number;
 }
 
-type Props = NativeStackScreenProps<SubjectStackParamList, 'PdfViewerScreen'>;
+interface PdfViewerScreenProps {
+  file: FileItem;
+  fileUri: string;
+  subjectColor: string;
+  currentTool: string;
+  currentColor: string;
+}
 
-export default function PdfViewerScreen({ route, navigation }: Props) {
-  const { file, fileUri, subjectColor } = route.params;
+export default function PdfViewerScreen({ 
+  file, 
+  fileUri, 
+  subjectColor, 
+  currentTool, 
+  currentColor 
+}: PdfViewerScreenProps) {
   const [loading, setLoading] = useState(true);
   const [pdfImageUri, setPdfImageUri] = useState<string>('');
   const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentTool, setCurrentTool] = useState('pen');
-  const [currentColor, setCurrentColor] = useState('#ff0000');
   const [currentWidth, setCurrentWidth] = useState(2);
   const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
   const svgRef = useRef<any>(null);
@@ -104,19 +106,45 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
     }
   };
 
-  // 필기 도구 변경
-  const changeTool = (tool: string) => {
-    setCurrentTool(tool);
-  };
-
-  // 색상 변경
-  const changeColor = (color: string) => {
-    setCurrentColor(color);
-  };
-
   // 굵기 변경
   const changeWidth = (width: number) => {
     setCurrentWidth(width);
+  };
+
+  // 지우개 기능: 특정 위치의 필기 지우기
+  const eraseAtPoint = (x: number, y: number) => {
+    const eraserRadius = 20; // 지우개 반경
+    const currentPaths = Array.isArray(drawingPaths) ? drawingPaths : [];
+    
+    // 터치한 위치에서 반경 내에 있는 필기 경로들을 찾아서 제거
+    const updatedPaths = currentPaths.filter((path) => {
+      // 간단한 거리 계산으로 지우개 영역 내의 경로 제거
+      // 실제로는 더 정교한 SVG 경로 분석이 필요할 수 있음
+      return !isPathInEraserRange(path, x, y, eraserRadius);
+    });
+    
+    if (updatedPaths.length !== currentPaths.length) {
+      setDrawingPaths(updatedPaths);
+      saveAnnotations(updatedPaths);
+    }
+  };
+
+  // 경로가 지우개 범위 내에 있는지 확인
+  const isPathInEraserRange = (path: DrawingPath, x: number, y: number, radius: number) => {
+    // SVG 경로에서 좌표를 추출하여 거리 계산
+    const pathData = path.path;
+    const coordinates = pathData.match(/(\d+\.?\d*),(\d+\.?\d*)/g);
+    
+    if (!coordinates) return false;
+    
+    for (const coord of coordinates) {
+      const [px, py] = coord.split(',').map(Number);
+      const distance = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
+      if (distance <= radius) {
+        return true;
+      }
+    }
+    return false;
   };
 
   // PDF 열기
@@ -136,6 +164,12 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
 
   // 그리기 시작
   const startDrawing = (x: number, y: number) => {
+    if (currentTool === 'eraser') {
+      // 지우개 모드: 터치한 위치의 필기 지우기
+      eraseAtPoint(x, y);
+      return;
+    }
+    
     setIsDrawing(true);
     setCurrentPoints([{ x, y }]);
     setCurrentPath(`M${x},${y}`);
@@ -143,6 +177,12 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
 
   // 그리기 중
   const continueDrawing = (x: number, y: number) => {
+    if (currentTool === 'eraser') {
+      // 지우개 모드: 드래그하면서 지우기
+      eraseAtPoint(x, y);
+      return;
+    }
+    
     if (!isDrawing) return;
     
     const newPoints = [...currentPoints, { x, y }];
@@ -218,89 +258,6 @@ export default function PdfViewerScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* 헤더 */}
-      <View style={[styles.header, { backgroundColor: subjectColor }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {file.originalFileName}
-        </Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      {/* 도구 모음 */}
-      <View style={styles.toolbar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.toolGroup}>
-            {/* 그리기 도구 */}
-            <TouchableOpacity
-              style={[styles.toolButton, currentTool === 'pen' && styles.activeTool]}
-              onPress={() => changeTool('pen')}
-            >
-              <Ionicons name="create" size={20} color={currentTool === 'pen' ? 'white' : '#666'} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.toolButton, currentTool === 'highlighter' && styles.activeTool]}
-              onPress={() => changeTool('highlighter')}
-            >
-              <Ionicons name="brush" size={20} color={currentTool === 'highlighter' ? 'white' : '#666'} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.toolButton, currentTool === 'text' && styles.activeTool]}
-              onPress={() => changeTool('text')}
-            >
-              <Ionicons name="text" size={20} color={currentTool === 'text' ? 'white' : '#666'} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
-              onPress={() => changeTool('eraser')}
-            >
-              <Ionicons name="trash" size={20} color={currentTool === 'eraser' ? 'white' : '#666'} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.toolGroup}>
-            {/* 색상 선택 */}
-            {['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#000000'].map((color) => (
-              <TouchableOpacity
-                key={color}
-                style={[styles.colorButton, { backgroundColor: color }, currentColor === color && styles.selectedColor]}
-                onPress={() => changeColor(color)}
-              />
-            ))}
-          </View>
-
-          <View style={styles.toolGroup}>
-            {/* 굵기 선택 */}
-            {[1, 2, 4, 8].map((width) => (
-              <TouchableOpacity
-                key={width}
-                style={[styles.widthButton, currentWidth === width && styles.activeTool]}
-                onPress={() => changeWidth(width)}
-              >
-                <View style={[styles.widthIndicator, { width: width * 2, height: width * 2 }]} />
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.toolGroup}>
-            {/* 기타 도구 */}
-            <TouchableOpacity style={styles.toolButton} onPress={clearAnnotations}>
-              <Ionicons name="refresh" size={20} color="#666" />
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
-
       {/* PDF 뷰어 + 필기 기능 */}
       <View style={styles.pdfContainer}>
         {loading ? (
@@ -383,70 +340,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'white',
-  },
-  menuButton: {
-    marginLeft: 12,
-  },
-  toolbar: {
-    backgroundColor: 'white',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  toolGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  toolButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  activeTool: {
-    backgroundColor: '#007AFF',
-  },
-  colorButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedColor: {
-    borderColor: '#007AFF',
-  },
-  widthButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  widthIndicator: {
-    backgroundColor: '#333',
-    borderRadius: 10,
   },
   pdfContainer: {
     flex: 1,

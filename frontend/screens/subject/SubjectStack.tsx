@@ -5,6 +5,7 @@ import SubjectListScreen from './SubjectListScreen';
 import SubjectDetailScreen from './SubjectDetailScreen';
 import SubjectInnerScreen from './SubjectInnerScreen';
 import PdfViewerScreen from './PdfViewerScreen';
+import PDFDrawingScreen from './PDFDrawingScreen';
 import AudioPlayerScreen from './AudioPlayerScreen';
 
 export type SubjectStackParamList = {
@@ -12,6 +13,7 @@ export type SubjectStackParamList = {
   SubjectDetail: { subject: any };
   SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
   PdfViewerScreen: { file: any; fileUri: string; subjectColor: string };
+  PDFDrawingScreen: { file: any; fileUri: string; subjectColor: string };
   AudioPlayerScreen: { file: any; fileUri: string; subjectColor: string };
   QuizSelect: undefined;
   QuizRoom: undefined;
@@ -38,6 +40,10 @@ export default function SubjectStack() {
       <Stack.Screen
         name="PdfViewerScreen"
         component={PdfViewerScreen as unknown as React.ComponentType<any>}
+      />
+      <Stack.Screen
+        name="PDFDrawingScreen"
+        component={PDFDrawingScreen as unknown as React.ComponentType<any>}
       />
       <Stack.Screen
         name="AudioPlayerScreen"

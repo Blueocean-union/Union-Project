@@ -219,7 +219,7 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
           { text: '취소', style: 'cancel' },
           { 
             text: '수정', 
-            onPress: (newName) => {
+            onPress: (newName: string | undefined) => {
               if (newName && newName !== subjectName) {
                 updateSubjectInfo({ name: newName });
               }

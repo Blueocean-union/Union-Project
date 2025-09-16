@@ -283,8 +283,8 @@ export default function SubjectFileStorage({
           // 웹에서는 로그만 출력
           console.log(`[${file.originalFileName}] 터치됨`);
         } else {
-          // 모바일에서는 PDF 뷰어 화면으로 이동
-          navigation.navigate('PdfViewerScreen', {
+          // 모바일에서는 PDF 드로잉 화면으로 이동
+          navigation.navigate('PDFDrawingScreen', {
             file: file,
             fileUri: fileUri,
             subjectColor: subjectColor
