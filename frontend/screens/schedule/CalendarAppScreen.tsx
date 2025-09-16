@@ -19,6 +19,9 @@ export default function CalendarAppScreen() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-based
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [schedules, setSchedules] = useState<{ [key: string]: any[] }>({});
+  const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+  const [isLoadingToday, setIsLoadingToday] = useState(false);
 
   const months = [
     '1월', '2월', '3월', '4월', '5월', '6월',
@@ -41,8 +44,49 @@ export default function CalendarAppScreen() {
     fetchSchedulesByMonth(currentYear, currentMonth + 1);
   }, [currentYear, currentMonth]);
 
+  useEffect(() => {
+    // 오늘 날짜가 선택된 경우 오늘의 일정을 가져옴
+    const isToday = selectedDate === today.getDate() && 
+                   currentMonth === today.getMonth() && 
+                   currentYear === today.getFullYear();
+    
+    if (isToday) {
+      fetchTodaySchedules();
+    }
+  }, [selectedDate, currentMonth, currentYear]);
+
+  const fetchTodaySchedules = async () => {
+    try {
+      setIsLoadingToday(true);
+      const token = await AsyncStorage.getItem('accessToken');
+      const res = await axios.get(
+        'http://52.78.209.115:8080/api/schedules/today',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const schedulesWithColors = res.data.map((item: any) => ({
+        ...item,
+        color: categoryColorMap[item.category]?.bg || '#F5F5F5',
+        textColor: categoryColorMap[item.category]?.text || '#333',
+        iconColor: categoryColorMap[item.category]?.icon || '#666'
+      }));
+
+      setTodaySchedules(schedulesWithColors);
+    } catch (err) {
+      console.error('오늘의 일정 불러오기 실패:', err);
+      setTodaySchedules([]);
+    } finally {
+      setIsLoadingToday(false);
+    }
+  };
+
   const fetchSchedulesByMonth = async (year: number, month: number) => {
     try {
+      setIsLoadingMonth(true);
       const token = await AsyncStorage.getItem('accessToken');
       const res = await axios.get(
         `http://52.78.209.115:8080/api/schedules/month?year=${year}&month=${month}`,
@@ -67,9 +111,9 @@ export default function CalendarAppScreen() {
           if (!grouped[key]) grouped[key] = [];
           grouped[key].push({
             ...item,
-            color: categoryColorMap[item.category]?.bg || '#EEE',
-            textColor: categoryColorMap[item.category]?.text || '#000',
-            iconColor: categoryColorMap[item.category]?.icon || '#000'
+            color: categoryColorMap[item.category]?.bg || '#F5F5F5',
+            textColor: categoryColorMap[item.category]?.text || '#333',
+            iconColor: categoryColorMap[item.category]?.icon || '#666'
           });
           scheduleStart.setDate(scheduleStart.getDate() + 1);
         }
@@ -77,6 +121,9 @@ export default function CalendarAppScreen() {
       setSchedules(grouped);
     } catch (err) {
       console.error('월간 일정 불러오기 실패:', err);
+      setSchedules({});
+    } finally {
+      setIsLoadingMonth(false);
     }
   };
 
@@ -92,9 +139,51 @@ export default function CalendarAppScreen() {
     return schedules[key] || [];
   };
 
-  const hasSchedule = (date: number) => {
-    const key = `${currentMonth}-${date}`;
-    return schedules[key] && schedules[key].length > 0;
+  // 연속된 일정들을 그룹핑하는 함수
+  const getConsecutiveScheduleGroups = () => {
+    const groups: { [key: string]: { schedule: any, startDay: number, endDay: number, row: number } } = {};
+    const usedRows: { [key: number]: boolean[] } = {}; // 각 날짜별로 사용된 행들을 추적
+    
+    // 현재 달의 모든 날짜에 대해 일정을 확인
+    days.forEach((day, dayIndex) => {
+      if (!day) return;
+      
+      const daySchedules = getDateSchedules(day);
+      if (!usedRows[day]) usedRows[day] = [];
+      
+      daySchedules.forEach(schedule => {
+        const scheduleKey = `${schedule.title}-${schedule.startDate}`;
+        
+        if (!groups[scheduleKey]) {
+          // 새로운 일정 그룹 생성
+          let availableRow = 0;
+          // 사용 가능한 행 찾기
+          while (usedRows[day] && usedRows[day][availableRow]) {
+            availableRow++;
+          }
+          
+          groups[scheduleKey] = {
+            schedule,
+            startDay: day,
+            endDay: day,
+            row: availableRow
+          };
+          
+          // 해당 행을 사용 중으로 표시
+          if (!usedRows[day]) usedRows[day] = [];
+          usedRows[day][availableRow] = true;
+        } else if (groups[scheduleKey].endDay === day - 1) {
+          // 연속된 일정인 경우 끝 날짜 업데이트
+          groups[scheduleKey].endDay = day;
+          
+          // 연속된 날짜의 같은 행을 사용 중으로 표시
+          if (!usedRows[day]) usedRows[day] = [];
+          usedRows[day][groups[scheduleKey].row] = true;
+        }
+      });
+    });
+    
+    return Object.values(groups);
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -116,7 +205,84 @@ export default function CalendarAppScreen() {
   };
 
   const getSelectedDateSchedules = () => {
+    // 오늘 날짜가 선택된 경우 오늘의 일정 API 결과 사용
+    const isToday = selectedDate === today.getDate() && 
+                   currentMonth === today.getMonth() && 
+                   currentYear === today.getFullYear();
+    
+    if (isToday) {
+      return todaySchedules;
+    }
+    
+    // 다른 날짜는 월간 일정에서 가져옴
     return getDateSchedules(selectedDate);
+  };
+
+  // 날짜의 인덱스를 구하는 함수
+  const getDayIndex = (day: number) => {
+    return days.findIndex(d => d === day);
+  };
+
+  // 연속 일정 바를 렌더링하는 함수
+  const renderConsecutiveSchedules = () => {
+    const scheduleGroups = getConsecutiveScheduleGroups();
+    
+    return scheduleGroups.map((group, groupIndex) => {
+      const startIndex = getDayIndex(group.startDay);
+      const endIndex = getDayIndex(group.endDay);
+      
+      if (startIndex === -1 || endIndex === -1) return null;
+      
+      const startRow = Math.floor(startIndex / 7);
+      const endRow = Math.floor(endIndex / 7);
+      
+      // 여러 주에 걸친 일정의 경우 각 주별로 분할해서 렌더링
+      const segments = [];
+      
+      for (let row = startRow; row <= endRow; row++) {
+        const rowStartIndex = row * 7;
+        const rowEndIndex = (row + 1) * 7 - 1;
+        
+        const segmentStartIndex = Math.max(startIndex, rowStartIndex);
+        const segmentEndIndex = Math.min(endIndex, rowEndIndex);
+        
+        const segmentStartCol = segmentStartIndex % 7;
+        const segmentEndCol = segmentEndIndex % 7;
+        
+        const left = (segmentStartCol * 14.28) + 2;
+        const width = ((segmentEndCol - segmentStartCol + 1) * 14.28) - 4;
+        const top = (row * 67) + 35 + (group.row * 18);
+        
+        segments.push(
+          <View
+            key={`${groupIndex}-${row}`}
+            style={[
+              styles.consecutiveSchedule,
+              {
+                position: 'absolute',
+                left: `${left}%`,
+                width: `${width}%`,
+                top: top,
+                backgroundColor: group.schedule.color,
+                borderRadius: group.startDay === group.endDay ? 2 : 
+                  (segmentStartCol === startIndex % 7 && segmentEndCol === endIndex % 7) ? 2 :
+                  (segmentStartCol === startIndex % 7) ? '2px 0 0 2px' :
+                  (segmentEndCol === endIndex % 7) ? '0 2px 2px 0' : 0
+              }
+            ]}
+          >
+            <Text style={[
+              styles.schedulePreviewText,
+              { color: group.schedule.textColor }
+            ]} numberOfLines={1}>
+              {group.schedule.title}
+            </Text>
+          </View>
+        );
+      }
+      
+      return segments;
+    });
   };
 
   const renderScheduleItem = (schedule: any, key: string) => (
@@ -129,47 +295,24 @@ export default function CalendarAppScreen() {
       <View style={styles.scheduleContent}>
         <View style={styles.timeContainer}>
           <Ionicons name="time-outline" size={16} color="#666" />
-          <Text style={styles.timeText}>{schedule.startTime || '11:30'}</Text>
+          <Text style={styles.timeText}>
+            {schedule.startTime || new Date(schedule.startDate).toLocaleTimeString('ko-KR', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </Text>
         </View>
         <Text style={[styles.titleText, { color: schedule.textColor }]}>
           {schedule.title}
         </Text>
+        {schedule.description && (
+          <Text style={[styles.descriptionText, { color: schedule.textColor }]}>
+            {schedule.description}
+          </Text>
+        )}
       </View>
     </View>
   );
-
-  // 예시 데이터 (실제 프로덕션에서는 제거)
-  const sampleSchedules = [
-    {
-      id: 'sample-1',
-      title: '어버이날',
-      category: '기타',
-      startDate: '',
-      endDate: '',
-      color: '#E8B4F0',
-      textColor: '#333'
-    },
-    {
-      id: 'sample-2',
-      title: '컴퓨터그래픽 프로젝트 팀 제출',
-      category: '과제',
-      startDate: '',
-      endDate: '',
-      startTime: '11:30',
-      color: '#E8F5E8',
-      textColor: '#333'
-    },
-    {
-      id: 'sample-3',
-      title: '선형대수 필기',
-      category: '시험',
-      startDate: '',
-      endDate: '',
-      startTime: '13:00',
-      color: '#E3F2FD',
-      textColor: '#333'
-    }
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -235,13 +378,13 @@ export default function CalendarAppScreen() {
                       ]}>
                         {day}
                       </Text>
-                      {hasSchedule(day) && (
-                        <View style={styles.scheduleIndicator} />
-                      )}
                     </>
                   )}
                 </TouchableOpacity>
               ))}
+              
+              {/* 연속 일정 바들 렌더링 */}
+              {renderConsecutiveSchedules()}
             </View>
           </View>
         </View>
@@ -259,32 +402,18 @@ export default function CalendarAppScreen() {
             </View>
 
             <ScrollView style={styles.scheduleScrollView}>
-              {/* 예시 일정들 */}
-              {sampleSchedules.map((schedule, index) => (
-                <View key={`sample-${index}`} style={[styles.scheduleItem, { backgroundColor: schedule.color }]}>
-                  {schedule.category === '기타' && schedule.title === '어버이날' ? (
-                    <View style={styles.scheduleHeader}>
-                      <Text style={styles.categoryBadge}>{schedule.title}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.scheduleContent}>
-                      <View style={styles.timeContainer}>
-                        <Ionicons 
-                          name={schedule.category === '과제' ? "calendar-outline" : "time-outline"} 
-                          size={16} 
-                          color="#666" 
-                        />
-                        <Text style={styles.timeText}>{schedule.startTime}</Text>
-                      </View>
-                      <Text style={styles.titleText}>{schedule.title}</Text>
-                    </View>
-                  )}
+              {isLoadingToday || isLoadingMonth ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>일정을 불러오는 중...</Text>
                 </View>
-              ))}
-
-              {/* 동적 일정들 */}
-              {getSelectedDateSchedules().map((schedule: any, index: number) => 
-                renderScheduleItem(schedule, `dynamic-${index}`)
+              ) : getSelectedDateSchedules().length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>이 날에는 일정이 없습니다.</Text>
+                </View>
+              ) : (
+                getSelectedDateSchedules().map((schedule: any, index: number) => 
+                  renderScheduleItem(schedule, `schedule-${index}`)
+                )
               )}
             </ScrollView>
           </View>
@@ -339,27 +468,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 15,
     padding: 40,
+    paddingTop:30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550, // 캘린더 고정 높이 설정
+    height: 550,
   },
   monthHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   monthText: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
   },
   weekDaysContainer: {
     flexDirection: 'row',
-    marginBottom: -10,
+    marginBottom: -5,
   },
   weekDayCell: {
     flex: 1,
@@ -367,47 +497,61 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   weekDayText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '500',
     color: '#666',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    position: 'relative',
   },
   dayCell: {
     width: '14.28%',
-    height: 67, // 날짜 셀 높이 축소
+    height: 67,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
     position: 'relative',
   },
   selectedDayCircle: {
     position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 30,  // 완전한 원형
-    backgroundColor: '#FF5722',  // 빨간 원
-    zIndex: 1,  // 글자보다 뒤에 위치
+    top: 9,
+    width: 26,
+    height: 26,
+    borderRadius: 15,
+    backgroundColor: '#FF5722',
+    zIndex: 1,
   },
   dayText: {
-    fontSize: 20,
-    fontWeight: "400",
+    fontSize: 16,
+    fontWeight: "500",
     color: '#333',
-    zIndex: 2,  // 원보다 앞에 위치
+    zIndex: 2,
   },
   selectedDayText: {
-    color: 'white',  // 흰색 글자
+    color: 'white',
     fontWeight: '600',
   },
-  scheduleIndicator: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#FF5722',
+  consecutiveSchedule: {
+    height: 14,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    zIndex: 2,
+  },
+  schedulePreview: {
     position: 'absolute',
-    bottom: 6,
-    zIndex: 2,  // 원보다 앞에 위치
+    left: 2,
+    right: 2,
+    height: 15,
+    borderRadius: 2,
+    zIndex: 2,
+  },
+  schedulePreviewText: {
+    fontSize: 8,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 2,
   },
   scheduleSection: {
     backgroundColor: 'white',
@@ -418,7 +562,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550, // 일정 섹션도 캘린더와 동일한 높이로 설정
+    height: 550,
   },
   scheduleSectionHeader: {
     flexDirection: 'row',
@@ -445,16 +589,11 @@ const styles = StyleSheet.create({
   scheduleItem: {
     borderRadius: 12,
     padding: 8,
-    height: 70,
+    minHeight: 70,
     marginBottom: 12,
   },
   scheduleHeader: {
     marginBottom: 5,
-  },
-  categoryBadge: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
   },
   categoryText: {
     fontSize: 10,
@@ -476,5 +615,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
+  },
+  descriptionText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
   },
 });
