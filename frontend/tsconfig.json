@@ -7,7 +7,8 @@
       "@screens/*": ["screens/*"],
       "@components/*": ["components/*"]
     },
-    "typeRoots": ["./frontend/types", "./node_modules/@types"]
+    "typeRoots": ["./types", "./node_modules/@types"],   // <- 이 줄 반드시 추가
+    "skipLibCheck": true
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

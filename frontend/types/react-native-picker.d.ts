@@ -8,7 +8,7 @@ declare module '@react-native-picker/picker' {
     style?: ViewStyle | TextStyle | (ViewStyle | TextStyle)[];
     enabled?: boolean;
     mode?: 'dialog' | 'dropdown';
-    children?: React.ReactNode; // 🔥 children 허용 추가
+    children?: React.ReactNode;
   }
 
   export class Picker extends React.Component<PickerProps> {

@@ -6,8 +6,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { createPost, updatePost, type Post } from '../../libs/api/posts';
 
 interface RouteParams {
-  question?: Post;       // 수정 모드일 경우 전달
-  categoryId?: number;   // 새 글 작성 모드일 경우 전달
+  question?: Post;      // 수정 모드일 때 전달
+  categoryId?: number;  // 새 글 작성 모드일 때 전달
 }
 
 const categories = [
@@ -25,6 +25,7 @@ export default function QuestionWriteScreen() {
   const params = (route.params ?? {}) as RouteParams;
 
   const isEdit = !!params.question;
+
   const [title, setTitle] = useState(params.question?.title ?? '');
   const [content, setContent] = useState(params.question?.content ?? '');
   const [categoryId, setCategoryId] = useState<number>(
@@ -41,14 +42,14 @@ export default function QuestionWriteScreen() {
       if (isEdit && params.question) {
         await updatePost(params.question.id, { title, content, categoryId });
         Alert.alert('알림', '질문이 수정되었습니다.');
-        navigation.goBack();
       } else {
-        const newPost: Post = await createPost({ title, content, categoryId });
+        await createPost({ title, content, categoryId });
         Alert.alert('알림', '질문이 등록되었습니다.');
-        navigation.goBack();
       }
-    } catch (e) {
-      Alert.alert('에러', '저장 중 문제가 발생했습니다.');
+      navigation.goBack();
+    } catch (err) {
+      console.error(err);
+      Alert.alert('오류', '저장에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -58,7 +59,12 @@ export default function QuestionWriteScreen() {
       <TextInput
         value={title}
         onChangeText={setTitle}
-        style={{ borderWidth: 1, borderRadius: 4, padding: 8, marginBottom: 16 }}
+        style={{
+          borderWidth: 1,
+          borderRadius: 4,
+          padding: 8,
+          marginBottom: 16,
+        }}
       />
 
       <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 4 }}>내용</Text>
@@ -77,8 +83,11 @@ export default function QuestionWriteScreen() {
       />
 
       <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 4 }}>카테고리</Text>
-      <Picker selectedValue={categoryId} onValueChange={(itemValue: number) => setCategoryId(itemValue)}>
-        {categories.map(c => (
+      <Picker
+        selectedValue={categoryId}
+        onValueChange={(itemValue: number) => setCategoryId(itemValue)}
+      >
+        {categories.map((c) => (
           <Picker.Item key={c.id} label={c.name} value={c.id} />
         ))}
       </Picker>
