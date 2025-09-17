@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import 'react-native-url-polyfill/auto';
+import AddScheduleModal from './AddScheduleModal'; // 새로 추가
 
 export default function CalendarAppScreen() {
   const today = new Date();
@@ -22,6 +23,7 @@ export default function CalendarAppScreen() {
   const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
   const [isLoadingToday, setIsLoadingToday] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // 새로 추가
 
   const months = [
     '1월', '2월', '3월', '4월', '5월', '6월',
@@ -124,6 +126,20 @@ export default function CalendarAppScreen() {
       setSchedules({});
     } finally {
       setIsLoadingMonth(false);
+    }
+  };
+
+  // 일정이 추가된 후 실행되는 함수
+  const handleScheduleAdded = async () => {
+    // 월간 일정과 오늘 일정을 다시 불러옴
+    await fetchSchedulesByMonth(currentYear, currentMonth + 1);
+    
+    const isToday = selectedDate === today.getDate() && 
+                   currentMonth === today.getMonth() && 
+                   currentYear === today.getFullYear();
+    
+    if (isToday) {
+      await fetchTodaySchedules();
     }
   };
 
@@ -314,6 +330,11 @@ export default function CalendarAppScreen() {
     </View>
   );
 
+  // 선택된 날짜를 Date 객체로 반환하는 함수
+  const getSelectedDateAsDateObject = () => {
+    return new Date(currentYear, currentMonth, selectedDate);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EEEFF6" />
@@ -396,7 +417,10 @@ export default function CalendarAppScreen() {
               <Text style={styles.scheduleSectionTitle}>
                 {currentMonth + 1}월 {selectedDate}일 일정
               </Text>
-              <TouchableOpacity style={styles.addButton}>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => setShowAddModal(true)}
+              >
                 <Ionicons name="add" size={18} color="white" />
               </TouchableOpacity>
             </View>
@@ -408,7 +432,7 @@ export default function CalendarAppScreen() {
                 </View>
               ) : getSelectedDateSchedules().length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>이 날에는 일정이 없습니다.</Text>
+                  <Text style={styles.emptyText}>예정된 일정이 없습니다.</Text>
                 </View>
               ) : (
                 getSelectedDateSchedules().map((schedule: any, index: number) => 
@@ -419,6 +443,14 @@ export default function CalendarAppScreen() {
           </View>
         </View>
       </View>
+
+      {/* 일정 추가 모달 */}
+      <AddScheduleModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        selectedDate={getSelectedDateAsDateObject()}
+        onScheduleAdded={handleScheduleAdded}
+      />
     </SafeAreaView>
   );
 }
@@ -483,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   monthText: {
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: 'bold',
     color: '#333',
   },
@@ -571,6 +603,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scheduleSectionTitle: {
+    paddingLeft:10,
     fontSize: 35,
     fontWeight: 'bold',
     color: '#3F4E7C',
@@ -636,7 +669,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
+    paddingTop:150,
+    fontSize: 24,
+    color: '#b4b4b4ff',
+    fontWeight: '500',
   },
 });
