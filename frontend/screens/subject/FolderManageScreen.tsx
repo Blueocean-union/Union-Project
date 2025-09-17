@@ -6,7 +6,7 @@ import {
   renameFolder,
   deleteFolder,
   getFolder,
-} from '../libs/api/folders';
+} from '../../libs/api/folders';
 
 type Props = { route: { params: { folderId: number } }; navigation: any };
 

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SubjectStackParamList } from '../MainTabs';
