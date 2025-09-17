@@ -1,3 +1,4 @@
+// frontend/screens/question/QuestionCategoryScreen.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -5,21 +6,24 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { listPosts, type Post } from '../../libs/api/posts';
 
 interface RouteParams {
-  folderId: number;
-  folderName: string;
+  folderId?: number;   // ✅ 옵셔널로 변경
+  folderName?: string; // ✅ 옵셔널로 변경
 }
 
 export default function QuestionCategoryScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const { folderId, folderName } = (route.params as RouteParams);
+  const { folderId, folderName } = (route.params as RouteParams) || {};
 
   const [posts, setPosts] = useState<Post[]>([]);
 
   const loadPosts = async () => {
+    if (!folderId) {
+      return; // ✅ folderId 없으면 그냥 리턴
+    }
     try {
       const data = await listPosts(folderId);
-      setPosts(data);
+      setPosts(data || []);
     } catch {
       Alert.alert('오류', '질문을 불러오지 못했습니다.');
     }
@@ -31,29 +35,45 @@ export default function QuestionCategoryScreen() {
 
   const renderItem = ({ item }: { item: Post }) => (
     <TouchableOpacity
-      style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12, marginVertical: 8, elevation: 1 }}
+      style={{
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 12,
+        marginVertical: 8,
+        elevation: 1,
+      }}
       onPress={() => navigation.navigate('QuestionDetail', { id: item.id })}
     >
       <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
       <Text style={{ marginTop: 4, color: '#555' }}>
-        {item.writerName} · {new Date(item.createdAt).toLocaleDateString()}
+        {item.writerName ?? '익명'} · {new Date(item.createdAt).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={{ flex: 1, padding: 24, backgroundColor: '#fff' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color="black" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', marginLeft: 16 }}>{folderName}</Text>
-        <TouchableOpacity
-          style={{ marginLeft: 'auto' }}
-          onPress={() => navigation.navigate('QuestionWrite', { folderId })}
-        >
-          <Ionicons name="add-circle" size={28} color="black" />
-        </TouchableOpacity>
+        <Text style={{ fontSize: 28, fontWeight: 'bold', marginLeft: 16 }}>
+          {folderName ?? '카테고리'}
+        </Text>
+        {folderId && (
+          <TouchableOpacity
+            style={{ marginLeft: 'auto' }}
+            onPress={() => navigation.navigate('QuestionWrite', { folderId })}
+          >
+            <Ionicons name="add-circle" size={28} color="black" />
+          </TouchableOpacity>
+        )}
       </View>
       <FlatList
         data={posts}

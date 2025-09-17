@@ -2,11 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, TextInput, Modal, Button } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { listFolders, createFolder, updateFolder, deleteFolder, type Folder } from '../../libs/api/folders';
+import {
+  listQuestionFolders,
+  createQuestionFolder,
+  updateQuestionFolder,
+  deleteQuestionFolder,
+  type QuestionFolder,
+} from '../../libs/api/questionFolders';
 
 export default function QuestionMainScreen() {
   const navigation = useNavigation<any>();
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<QuestionFolder[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -15,7 +21,7 @@ export default function QuestionMainScreen() {
   const loadFolders = async () => {
     setLoading(true);
     try {
-      const data = await listFolders();
+      const data = await listQuestionFolders();
       setFolders(data);
     } catch {
       Alert.alert('오류', '폴더 목록을 불러오지 못했습니다.');
@@ -34,7 +40,7 @@ export default function QuestionMainScreen() {
     setModalVisible(true);
   };
 
-  const openEditModal = (folder: Folder) => {
+  const openEditModal = (folder: QuestionFolder) => {
     setEditingId(folder.id);
     setFolderName(folder.name);
     setModalVisible(true);
@@ -44,9 +50,9 @@ export default function QuestionMainScreen() {
     if (!folderName.trim()) return;
     try {
       if (editingId) {
-        await updateFolder(editingId, { name: folderName });
+        await updateQuestionFolder(editingId, { name: folderName });
       } else {
-        await createFolder({ name: folderName });
+        await createQuestionFolder({ name: folderName });
       }
       setModalVisible(false);
       loadFolders();
@@ -63,17 +69,17 @@ export default function QuestionMainScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteFolder(id);
+            await deleteQuestionFolder(id);
             loadFolders();
           } catch {
             Alert.alert('오류', '폴더 삭제 실패');
           }
-        }
-      }
+        },
+      },
     ]);
   };
 
-  const renderItem = ({ item }: { item: Folder }) => (
+  const renderItem = ({ item }: { item: QuestionFolder }) => (
     <TouchableOpacity
       style={{ backgroundColor: '#f9f9f9', padding: 16, borderRadius: 12, marginVertical: 8 }}
       onPress={() => navigation.navigate('QuestionCategory', { folderId: item.id, folderName: item.name })}

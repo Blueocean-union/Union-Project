@@ -11,6 +11,7 @@ export interface Post {
   writerName?: string;
   createdAt: string;
   updatedAt?: string;
+  folderId?: number;
 }
 
 /** 카테고리별 질문 목록 조회 */
