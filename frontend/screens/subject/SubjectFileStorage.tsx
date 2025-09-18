@@ -278,18 +278,12 @@ export default function SubjectFileStorage({
 
       // 파일 타입에 따라 다른 화면으로 이동
       if (file.contentType === 'application/pdf') {
-        // 웹과 모바일을 판단해서 PDF 처리 방식 선택
-        if (Platform.OS === 'web') {
-          // 웹에서는 로그만 출력
-          console.log(`[${file.originalFileName}] 터치됨`);
-        } else {
-          // 모바일에서는 PDF 드로잉 화면으로 이동
-          navigation.navigate('PDFDrawingScreen', {
-            file: file,
-            fileUri: fileUri,
-            subjectColor: subjectColor
-          });
-        }
+        // 모바일에서는 PDF 드로잉 화면으로 이동
+        navigation.navigate('PDFDrawingScreen', {
+          file: file,
+          fileUri: fileUri,
+          subjectColor: subjectColor
+        });
       } else if (file.contentType.includes('audio/') || file.contentType.includes('video/')) {
         // 음성/비디오 플레이어 화면으로 이동
         navigation.navigate('AudioPlayerScreen', {
@@ -403,9 +397,9 @@ export default function SubjectFileStorage({
 
     // 파일 타입에 따라 적절한 화면으로 이동
     if (file.contentType === 'application/pdf') {
-      // 웹에서는 PDF 뷰어를 사용할 수 없음
+      // 웹에서는 콘솔 로그만 출력, 모바일에서는 PDF 뷰어 사용
       if (Platform.OS === 'web') {
-        Alert.alert('알림', '웹에서는 PDF 뷰어를 사용할 수 없습니다. 모바일에서 확인해주세요.');
+        console.log(`[${file.originalFileName}] 클릭됨`);
         return;
       }
       // PDF 파일은 SubjectStack 내에서 처리

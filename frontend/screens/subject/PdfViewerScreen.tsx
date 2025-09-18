@@ -6,11 +6,15 @@ import {
   Alert,
   ActivityIndicator,
   PanResponder,
+  ScrollView,
+  Dimensions,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Text as SvgText, G } from 'react-native-svg';
-import * as WebBrowser from 'expo-web-browser';
+import { WebView } from 'react-native-webview';
+import * as FileSystem from 'expo-file-system';
 import api from '../../libs/api/axios';
 
 interface FileItem {
@@ -29,6 +33,7 @@ interface DrawingPath {
   color: string;
   width: number;
   tool: string;
+  page: number;
 }
 
 interface DrawingPoint {
@@ -42,6 +47,7 @@ interface PdfViewerScreenProps {
   subjectColor: string;
   currentTool: string;
   currentColor: string;
+  summaryPdfUri?: string; // 요약 PDF URI (선택적)
 }
 
 export default function PdfViewerScreen({ 
@@ -49,26 +55,45 @@ export default function PdfViewerScreen({
   fileUri, 
   subjectColor, 
   currentTool, 
-  currentColor 
+  currentColor,
+  summaryPdfUri
 }: PdfViewerScreenProps) {
   const [loading, setLoading] = useState(true);
-  const [pdfImageUri, setPdfImageUri] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [pdfImages, setPdfImages] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [scale, setScale] = useState(1);
   const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentWidth, setCurrentWidth] = useState(2);
   const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [splitRatio, setSplitRatio] = useState(0.5);
   const svgRef = useRef<any>(null);
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-  // PDF를 이미지로 변환 (간단한 플레이스홀더)
-  const convertPdfToImage = async () => {
+  // PDF 이미지 로드
+  const loadPdfImages = async () => {
     try {
-      // 실제로는 PDF를 이미지로 변환하는 로직이 필요
-      // 현재는 파일 URI를 그대로 사용 (개발용)
-      setPdfImageUri(fileUri);
+      setLoading(true);
+      
+      // 1. 서버에서 PDF 이미지 URL들 가져오기
+      const response = await api.get(`/api/files/${file.id}/images`);
+      
+      if (response.data.images && response.data.images.length > 0) {
+        // 이미지가 있으면 사용
+        setPdfImages(response.data.images);
+      } else {
+        // 이미지가 없으면 원본 PDF URI 사용 (WebView용)
+        setPdfImages([fileUri]);
+      }
+      
       setLoading(false);
     } catch (error) {
-      console.error('PDF 변환 실패:', error);
+      console.error('PDF 이미지 로드 실패:', error);
+      // 실패 시 원본 PDF URI 사용
+      setPdfImages([fileUri]);
       setLoading(false);
     }
   };
@@ -79,7 +104,6 @@ export default function PdfViewerScreen({
       const response = await api.get(`/api/annotations/${file.id}`);
       console.log('📝 필기 데이터 응답:', response.data);
       
-      // 응답 데이터가 배열인지 확인하고, 아니면 빈 배열로 설정
       if (Array.isArray(response.data)) {
         setDrawingPaths(response.data);
       } else if (response.data && Array.isArray(response.data.annotations)) {
@@ -111,15 +135,12 @@ export default function PdfViewerScreen({
     setCurrentWidth(width);
   };
 
-  // 지우개 기능: 특정 위치의 필기 지우기
+  // 지우개 기능
   const eraseAtPoint = (x: number, y: number) => {
-    const eraserRadius = 20; // 지우개 반경
+    const eraserRadius = 20;
     const currentPaths = Array.isArray(drawingPaths) ? drawingPaths : [];
     
-    // 터치한 위치에서 반경 내에 있는 필기 경로들을 찾아서 제거
     const updatedPaths = currentPaths.filter((path) => {
-      // 간단한 거리 계산으로 지우개 영역 내의 경로 제거
-      // 실제로는 더 정교한 SVG 경로 분석이 필요할 수 있음
       return !isPathInEraserRange(path, x, y, eraserRadius);
     });
     
@@ -131,7 +152,6 @@ export default function PdfViewerScreen({
 
   // 경로가 지우개 범위 내에 있는지 확인
   const isPathInEraserRange = (path: DrawingPath, x: number, y: number, radius: number) => {
-    // SVG 경로에서 좌표를 추출하여 거리 계산
     const pathData = path.path;
     const coordinates = pathData.match(/(\d+\.?\d*),(\d+\.?\d*)/g);
     
@@ -147,25 +167,14 @@ export default function PdfViewerScreen({
     return false;
   };
 
-  // PDF 열기
-  const openPdf = async () => {
-    try {
-      await WebBrowser.openBrowserAsync(fileUri, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-        controlsColor: '#007AFF',
-        showTitle: true,
-        toolbarColor: subjectColor,
-      });
-    } catch (error) {
-      console.error('PDF 열기 실패:', error);
-      Alert.alert('오류', 'PDF를 열 수 없습니다.');
-    }
+  // 확대/축소 핸들러
+  const handleScale = (scale: number) => {
+    setScale(Math.max(0.5, Math.min(3, scale)));
   };
 
   // 그리기 시작
   const startDrawing = (x: number, y: number) => {
     if (currentTool === 'eraser') {
-      // 지우개 모드: 터치한 위치의 필기 지우기
       eraseAtPoint(x, y);
       return;
     }
@@ -178,7 +187,6 @@ export default function PdfViewerScreen({
   // 그리기 중
   const continueDrawing = (x: number, y: number) => {
     if (currentTool === 'eraser') {
-      // 지우개 모드: 드래그하면서 지우기
       eraseAtPoint(x, y);
       return;
     }
@@ -203,6 +211,7 @@ export default function PdfViewerScreen({
       color: currentColor,
       width: currentWidth,
       tool: currentTool,
+      page: currentPage + 1,
     };
     
     const currentPaths = Array.isArray(drawingPaths) ? drawingPaths : [];
@@ -251,87 +260,185 @@ export default function PdfViewerScreen({
     },
   });
 
+  // 요약 PDF 로드
+  const loadSummaryPdf = async () => {
+    try {
+      const response = await api.get(`/api/files/${file.id}/summary`);
+      if (response.data.summaryPdfUri) {
+        setShowSummary(true);
+      }
+    } catch (error) {
+      console.log('요약 PDF 없음:', error);
+    }
+  };
+
   useEffect(() => {
     loadAnnotations();
-    convertPdfToImage();
+    loadPdfImages();
+    loadSummaryPdf();
   }, [file.id]);
+
+  // 메인 PDF 뷰어 (이미지+SVG)
+  const renderMainPdf = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={subjectColor} />
+          <Text style={styles.loadingText}>PDF를 불러오는 중...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color="#ff4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorSubText}>파일을 다시 확인해주세요.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        maximumZoomScale={3}
+        minimumZoomScale={0.5}
+      >
+        <View style={styles.pdfWrapper} {...panResponder.panHandlers}>
+          {/* PDF 이미지들 */}
+          {pdfImages.map((imageUri, index) => (
+            <View key={index} style={styles.pageContainer}>
+              <Image
+                source={{ uri: imageUri }}
+                style={[styles.pdfImage, { 
+                  width: screenWidth - 40,
+                  height: screenHeight * 0.8,
+                  transform: [{ scale }]
+                }]}
+                resizeMode="contain"
+              />
+              
+              {/* SVG 필기 오버레이 */}
+              <View style={styles.svgOverlay}>
+                <Svg
+                  ref={svgRef}
+                  style={styles.svg}
+                  width={screenWidth - 40}
+                  height={screenHeight * 0.8}
+                >
+                  {/* 저장된 필기 경로들 */}
+                  {Array.isArray(drawingPaths) && drawingPaths
+                    .filter(path => path.page === index + 1)
+                    .map((path) => (
+                      <Path
+                        key={path.id}
+                        d={path.path}
+                        stroke={path.color}
+                        strokeWidth={path.width}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                      />
+                    ))}
+                  
+                  {/* 현재 그리는 경로 */}
+                  {isDrawing && currentPath && (
+                    <Path
+                      d={currentPath}
+                      stroke={currentColor}
+                      strokeWidth={currentWidth}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={currentTool === 'highlighter' ? 0.5 : 1}
+                    />
+                  )}
+                  
+                  {/* 현재 그리는 점들 */}
+                  {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
+                    <Circle
+                      key={index}
+                      cx={point.x}
+                      cy={point.y}
+                      r={currentWidth / 2}
+                      fill={currentColor}
+                    />
+                  ))}
+                </Svg>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // 요약 PDF 뷰어 (WebView)
+  const renderSummaryPdf = () => {
+    if (!summaryPdfUri) {
+      return (
+        <View style={styles.noSummaryContainer}>
+          <Ionicons name="document-text" size={48} color="#ccc" />
+          <Text style={styles.noSummaryText}>요약 PDF가 없습니다</Text>
+        </View>
+      );
+    }
+
+    return (
+      <WebView
+        source={{ uri: summaryPdfUri }}
+        style={styles.summaryWebView}
+        onLoadStart={() => console.log('요약 PDF 로딩 시작')}
+        onLoadEnd={() => console.log('요약 PDF 로딩 완료')}
+        onError={(error) => console.log('요약 PDF 로딩 에러:', error)}
+        startInLoadingState={true}
+        renderLoading={() => (
+          <View style={styles.webViewLoading}>
+            <ActivityIndicator size="large" color={subjectColor} />
+            <Text>요약 PDF를 불러오는 중...</Text>
+          </View>
+        )}
+      />
+    );
+  };
 
   return (
     <View style={styles.container}>
-      {/* PDF 뷰어 + 필기 기능 */}
-      <View style={styles.pdfContainer}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={subjectColor} />
-            <Text style={styles.loadingText}>PDF를 불러오는 중...</Text>
+      {showSummary ? (
+        // 2분할 화면
+        <View style={styles.splitContainer}>
+          {/* 메인 PDF (이미지+SVG) */}
+          <View style={[styles.mainPdfContainer, { flex: splitRatio }]}>
+            {renderMainPdf()}
           </View>
-        ) : (
-          <View style={styles.drawingContainer} {...panResponder.panHandlers}>
-            {/* PDF 이미지 배경 */}
-            {pdfImageUri ? (
-              <Image
-                source={{ uri: pdfImageUri }}
-                style={styles.pdfImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.pdfPlaceholder}>
-                <Ionicons name="document-text" size={80} color={subjectColor} />
-                <Text style={styles.pdfTitle}>{file.originalFileName}</Text>
-                <Text style={styles.pdfSubtitle}>PDF 파일을 불러오는 중...</Text>
-              </View>
-            )}
-            
-            {/* SVG 필기 오버레이 */}
-            <View style={styles.svgOverlay}>
-              <Svg
-                ref={svgRef}
-                style={styles.svg}
-                width="100%"
-                height="100%"
-              >
-                {/* 저장된 필기 경로들 */}
-                {Array.isArray(drawingPaths) && drawingPaths.map((path) => (
-                  <Path
-                    key={path.id}
-                    d={path.path}
-                    stroke={path.color}
-                    strokeWidth={path.width}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={path.tool === 'highlighter' ? 0.5 : 1}
-                  />
-                ))}
-                
-                {/* 현재 그리는 경로 */}
-                {isDrawing && currentPath && (
-                  <Path
-                    d={currentPath}
-                    stroke={currentColor}
-                    strokeWidth={currentWidth}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={currentTool === 'highlighter' ? 0.5 : 1}
-                  />
-                )}
-                
-                {/* 현재 그리는 점들 (펜 도구용) */}
-                {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
-                  <Circle
-                    key={index}
-                    cx={point.x}
-                    cy={point.y}
-                    r={currentWidth / 2}
-                    fill={currentColor}
-                  />
-                ))}
-              </Svg>
-            </View>
+          
+          {/* 분할 조절 바 */}
+          <TouchableOpacity
+            style={styles.splitBar}
+            onPress={() => {
+              const newRatio = splitRatio === 0.5 ? 0.7 : splitRatio === 0.7 ? 0.3 : 0.5;
+              setSplitRatio(newRatio);
+            }}
+          >
+            <View style={styles.splitBarHandle} />
+          </TouchableOpacity>
+          
+          {/* 요약 PDF (WebView) */}
+          <View style={[styles.summaryContainer, { flex: 1 - splitRatio }]}>
+            {renderSummaryPdf()}
           </View>
-        )}
-      </View>
+        </View>
+      ) : (
+        // 단일 화면 (메인 PDF만)
+        <View style={styles.singleContainer}>
+          {renderMainPdf()}
+        </View>
+      )}
     </View>
   );
 }
@@ -341,57 +448,119 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  pdfContainer: {
+  splitContainer: {
     flex: 1,
-    position: 'relative',
+    flexDirection: 'row',
   },
-  drawingContainer: {
+  singleContainer: {
     flex: 1,
+  },
+  mainPdfContainer: {
+    flex: 1,
+  },
+  summaryContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  splitBar: {
+    width: 8,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splitBarHandle: {
+    width: 4,
+    height: 40,
+    backgroundColor: subjectColor || '#007AFF',
+    borderRadius: 2,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  pdfWrapper: {
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageContainer: {
+    position: 'relative',
+    marginBottom: 20,
   },
   pdfImage: {
-    width: '100%',
-    height: '100%',
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   svgOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
+    pointerEvents: 'none',
   },
   svg: {
     position: 'absolute',
     top: 0,
     left: 0,
   },
-  pdfPlaceholder: {
+  summaryWebView: {
     flex: 1,
-    alignItems: 'center',
+  },
+  webViewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  noSummaryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  pdfTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  pdfSubtitle: {
+  noSummaryText: {
     fontSize: 16,
     color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
+    marginTop: 12,
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ff4444',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorSubText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
