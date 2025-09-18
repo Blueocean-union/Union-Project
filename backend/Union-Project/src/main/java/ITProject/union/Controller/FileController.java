@@ -70,6 +70,17 @@ public class FileController {
     ) {
         return fileSystemService.getDownloadUrl(fileId, userId);
     }
+    @PatchMapping("/{fileId}/rename")
+    @Operation(summary = "파일 이름 수정",
+            description = "파일의 원본 이름을 수정합니다.")
+    public void renameFile(
+            @PathVariable Long fileId,
+            @RequestParam String newName,
+            @AuthenticationPrincipal(expression = "id")
+            @Parameter(hidden = true) Long userId
+    ) {
+        fileSystemService.renameFile(fileId, newName, userId);
+    }
 
     @Operation(summary = "파일 삭제",
             description = "파일을 소프트 삭제(DB에 deleted=true로 표시)하고, "

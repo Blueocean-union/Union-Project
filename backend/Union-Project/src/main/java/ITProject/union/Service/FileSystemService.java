@@ -228,6 +228,21 @@ public class FileSystemService {
 
         return new DownloadUrlResponse(presigned.url().toString(), expire.toSeconds());
     }
+    @Transactional
+    public void renameFile(Long fileId, String newName, Long userId) {
+        FileItem file = fileItemRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("파일 없음"));
+
+        // 소유자 확인 (보안)
+        if (!file.getOwnerUserId().equals(userId)) {
+            throw new RuntimeException("권한 없음");
+        }
+
+        file.setOriginalFileName(newName);
+        file.setUpdatedAt(Instant.now());
+
+        fileItemRepository.save(file);
+    }
 
     /**
      * 5) 삭제(소프트 삭제) + S3 객체 삭제
