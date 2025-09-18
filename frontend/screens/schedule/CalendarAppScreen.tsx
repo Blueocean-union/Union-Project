@@ -14,7 +14,12 @@ import axios from 'axios';
 import 'react-native-url-polyfill/auto';
 import AddScheduleModal from './AddScheduleModal'; // 새로 추가
 
-export default function CalendarAppScreen() {
+// navigation prop 타입 정의
+interface CalendarAppScreenProps {
+  navigation: any; // 실제 프로젝트에서는 더 구체적인 타입을 사용하세요
+}
+
+export default function CalendarAppScreen({ navigation }: CalendarAppScreenProps) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today.getDate());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-based
@@ -189,7 +194,7 @@ export default function CalendarAppScreen() {
           if (!usedRows[day]) usedRows[day] = [];
           usedRows[day][availableRow] = true;
         } else if (groups[scheduleKey].endDay === day - 1) {
-          // 연속된 일정인 경우 끝 날짜 업데이트
+          // 연속된 일정인 경우 끝날짜 업데이트
           groups[scheduleKey].endDay = day;
           
           // 연속된 날짜의 같은 행을 사용 중으로 표시
@@ -267,7 +272,7 @@ export default function CalendarAppScreen() {
         
         const left = (segmentStartCol * 14.28) + 2;
         const width = ((segmentEndCol - segmentStartCol + 1) * 14.28) - 4;
-        const top = (row * 67) + 35 + (group.row * 18);
+        const top = (row * 73) + 40 + (group.row * 18);
         
         segments.push(
           <View
@@ -335,12 +340,18 @@ export default function CalendarAppScreen() {
     return new Date(currentYear, currentMonth, selectedDate);
   };
 
+  // 홈 탭으로 이동하는 함수
+  const navigateToMainScreen = () => {
+    // 탭 네비게이터의 '홈' 탭으로 이동
+    navigation.navigate('홈');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EEEFF6" />
       
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={navigateToMainScreen}>
           <Ionicons name="chevron-back" size={24} color="#3F4E7C" />
           <Text style={styles.headerTitle}>일정</Text>
         </TouchableOpacity>
@@ -500,13 +511,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 15,
     padding: 40,
-    paddingTop:30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550,
+    height: 630,
   },
   monthHeader: {
     flexDirection: 'row',
@@ -515,7 +525,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   monthText: {
-    fontSize: 25,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#333',
   },
@@ -526,7 +536,7 @@ const styles = StyleSheet.create({
   weekDayCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 23,
   },
   weekDayText: {
     fontSize: 18,
@@ -540,15 +550,15 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: '14.28%',
-    height: 67,
+    height: 73,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 10,
+    paddingTop: 15,
     position: 'relative',
   },
   selectedDayCircle: {
     position: 'absolute',
-    top: 9,
+    top: 12,
     width: 26,
     height: 26,
     borderRadius: 15,
@@ -594,7 +604,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550,
+    height: 630,
   },
   scheduleSectionHeader: {
     flexDirection: 'row',
@@ -603,6 +613,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scheduleSectionTitle: {
+    paddingTop:20,
     paddingLeft:10,
     fontSize: 35,
     fontWeight: 'bold',

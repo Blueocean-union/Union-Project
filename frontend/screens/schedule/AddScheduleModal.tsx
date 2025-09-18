@@ -14,8 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
-
 
 interface AddScheduleModalProps {
   visible: boolean;
@@ -37,16 +35,15 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   const [endDate, setEndDate] = useState(selectedDate);
   const [startTime, setStartTime] = useState(() => {
     const now = new Date();
-    now.setMinutes(0, 0, 0); // 정각으로 설정
+    now.setMinutes(0, 0, 0);
     return now;
   });
   const [endTime, setEndTime] = useState(() => {
     const now = new Date();
-    now.setHours(now.getHours() + 1, 0, 0, 0); // 1시간 후로 설정
+    now.setHours(now.getHours() + 1, 0, 0, 0);
     return now;
   });
-  
-  // 각각의 picker 상태를 별도로 관리
+
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
@@ -54,7 +51,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const categories = ['과제', '시험', '발표', '기타'];
-  
+
   const categoryColorMap: Record<string, { bg: string, text: string, icon: string }> = {
     '과제': { bg: '#E8F5E8', text: '#2D5D2D', icon: '#4CAF50' },
     '시험': { bg: '#FFF3E0', text: '#EF6C00', icon: '#FB8C00' },
@@ -74,7 +71,6 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     const endTime = new Date();
     endTime.setHours(now.getHours() + 1, 0, 0, 0);
     setEndTime(endTime);
-    // picker 상태 초기화
     setShowStartDatePicker(false);
     setShowEndDatePicker(false);
     setShowStartTimePicker(false);
@@ -101,7 +97,7 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
   const validateDateTime = () => {
     const startDateTime = new Date(startDate);
     startDateTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-    
+
     const endDateTime = new Date(endDate);
     endDateTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
 
@@ -125,24 +121,20 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
     try {
       setIsLoading(true);
       const token = await AsyncStorage.getItem('accessToken');
-      
-      // 시작 날짜와 시간을 합쳐서 ISO 문자열로 변환
+
       const startDateTime = new Date(startDate);
       startDateTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-      
+
       const endDateTime = new Date(endDate);
       endDateTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
 
-      // API 스펙에 맞춘 데이터 구조
       const scheduleData = {
         title: title.trim(),
         category,
-        startDate: startDateTime.toISOString().split('T')[0], // YYYY-MM-DD 형식
-        endDate: endDateTime.toISOString().split('T')[0],     // YYYY-MM-DD 형식
+        startDate: startDateTime.toISOString().split('T')[0],
+        endDate: endDateTime.toISOString().split('T')[0],
         description: description.trim()
       };
-
-      console.log('전송할 데이터:', scheduleData);
 
       const response = await axios.post(
         'http://52.78.209.115:8080/api/schedules',
@@ -155,8 +147,6 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
         }
       );
 
-      console.log('API 응답:', response.data);
-
       Alert.alert('성공', '일정이 추가되었습니다.', [
         {
           text: '확인',
@@ -167,11 +157,6 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
         }
       ]);
     } catch (error) {
-      console.error('일정 추가 실패:', error);
-      if (axios.isAxiosError(error)) {
-        console.error('에러 응답:', error.response?.data);
-        console.error('에러 상태:', error.response?.status);
-      }
       Alert.alert('오류', '일정 추가에 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -180,38 +165,38 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
 
   // DateTimePicker 핸들러들
   const onStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    console.log('Start Date Change:', event.type, selectedDate);
-    
-    // 모든 플랫폼에서 picker 닫기
-    setShowStartDatePicker(false);
-    
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+    }
     if (selectedDate && event.type === 'set') {
       setStartDate(selectedDate);
-      // 시작 날짜가 종료 날짜보다 늦으면 종료 날짜도 업데이트
       if (selectedDate > endDate) {
         setEndDate(selectedDate);
+      }
+      if (Platform.OS === 'ios') {
+        setShowStartDatePicker(false);
       }
     }
   };
 
   const onEndDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    console.log('End Date Change:', event.type, selectedDate);
-    
-    setShowEndDatePicker(false);
-    
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+    }
     if (selectedDate && event.type === 'set' && selectedDate >= startDate) {
       setEndDate(selectedDate);
+      if (Platform.OS === 'ios') {
+        setShowEndDatePicker(false);
+      }
     }
   };
 
   const onStartTimeChange = (event: DateTimePickerEvent, selectedTime?: Date) => {
-    console.log('Start Time Change:', event.type, selectedTime);
-    
-    setShowStartTimePicker(false);
-    
+    if (Platform.OS === 'android') {
+      setShowStartTimePicker(false);
+    }
     if (selectedTime && event.type === 'set') {
       setStartTime(selectedTime);
-      // 같은 날짜이고 시작 시간이 종료 시간보다 늦거나 같으면 종료 시간을 1시간 후로 설정
       if (startDate.getTime() === endDate.getTime()) {
         const newEndTime = new Date(selectedTime);
         newEndTime.setHours(selectedTime.getHours() + 1);
@@ -219,235 +204,209 @@ const AddScheduleModal: React.FC<AddScheduleModalProps> = ({
           setEndTime(newEndTime);
         }
       }
+      if (Platform.OS === 'ios') {
+        setShowStartTimePicker(false);
+      }
     }
   };
 
   const onEndTimeChange = (event: DateTimePickerEvent, selectedTime?: Date) => {
-    console.log('End Time Change:', event.type, selectedTime);
-    
-    setShowEndTimePicker(false);
-    
+    if (Platform.OS === 'android') {
+      setShowEndTimePicker(false);
+    }
     if (selectedTime && event.type === 'set') {
       setEndTime(selectedTime);
+      if (Platform.OS === 'ios') {
+        setShowEndTimePicker(false);
+      }
     }
   };
 
   return (
-    <>
-      <Modal
-        visible={visible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={handleClose}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.modalContainer}>
-            {/* 헤더 */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>새 일정</Text>
-              <TouchableOpacity
-                onPress={handleSave}
-                style={[styles.saveButton, isLoading && styles.disabledButton]}
-                disabled={isLoading}
-              >
-                <Text style={styles.saveButtonText}>
-                  {isLoading ? '저장중...' : '저장'}
-                </Text>
-              </TouchableOpacity>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={handleClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>새 일정</Text>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={[styles.saveButton, isLoading && styles.disabledButton]}
+              disabled={isLoading}
+            >
+              <Text style={styles.saveButtonText}>
+                {isLoading ? '저장중...' : '저장'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>제목</Text>
+              <TextInput
+                style={styles.titleInput}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="일정 제목을 입력하세요"
+                placeholderTextColor="#999"
+                maxLength={50}
+              />
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {/* 제목 입력 */}
-              <View style={styles.inputSection}>
-                <Text style={styles.label}>제목</Text>
-                <TextInput
-                  style={styles.titleInput}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="일정 제목을 입력하세요"
-                  placeholderTextColor="#999"
-                  maxLength={50}
-                />
-              </View>
-
-              {/* 카테고리 선택 */}
-              <View style={styles.inputSection}>
-                <Text style={styles.label}>카테고리</Text>
-                <View style={styles.categoryContainer}>
-                  {categories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat}
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>카테고리</Text>
+              <View style={styles.categoryContainer}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: categoryColorMap[cat].bg },
+                      category === cat && styles.selectedCategoryChip
+                    ]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text
                       style={[
-                        styles.categoryChip,
-                        { backgroundColor: categoryColorMap[cat].bg },
-                        category === cat && styles.selectedCategoryChip
+                        styles.categoryText,
+                        { color: categoryColorMap[cat].text }
                       ]}
-                      onPress={() => setCategory(cat)}
                     >
-                      <Text
-                        style={[
-                          styles.categoryText,
-                          { color: categoryColorMap[cat].text }
-                        ]}
-                      >
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.dateTimeSection}>
+              <Text style={styles.label}>날짜</Text>
+              <View style={styles.dateRow}>
+                <TouchableOpacity
+                  style={[styles.dateButton, showStartDatePicker && styles.activeButton]}
+                  onPress={() => setShowStartDatePicker(!showStartDatePicker)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#666" />
+                  <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+                </TouchableOpacity>
+                <Text style={styles.dateSeparator}>~</Text>
+                <TouchableOpacity
+                  style={[styles.dateButton, showEndDatePicker && styles.activeButton]}
+                  onPress={() => setShowEndDatePicker(!showEndDatePicker)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#666" />
+                  <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* 날짜 선택 */}
-              <View style={styles.dateTimeSection}>
-                <Text style={styles.label}>날짜</Text>
-                <View style={styles.dateRow}>
-                  <TouchableOpacity
-                    style={[styles.dateButton, showStartDatePicker && styles.activeButton]}
-                    onPress={() => {
-                      console.log('시작 날짜 버튼 클릭');
-                      // 다른 picker들 닫기
-                      setShowEndDatePicker(false);
-                      setShowStartTimePicker(false);
-                      setShowEndTimePicker(false);
-                      // 시작 날짜 picker 토글
-                      setShowStartDatePicker(!showStartDatePicker);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="calendar-outline" size={20} color="#666" />
-                    <Text style={styles.dateText}>{formatDate(startDate)}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.dateSeparator}>~</Text>
-                  <TouchableOpacity
-                    style={[styles.dateButton, showEndDatePicker && styles.activeButton]}
-                    onPress={() => {
-                      console.log('종료 날짜 버튼 클릭');
-                      // 다른 picker들 닫기
-                      setShowStartDatePicker(false);
-                      setShowStartTimePicker(false);
-                      setShowEndTimePicker(false);
-                      // 종료 날짜 picker 토글
-                      setShowEndDatePicker(!showEndDatePicker);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="calendar-outline" size={20} color="#666" />
-                    <Text style={styles.dateText}>{formatDate(endDate)}</Text>
-                  </TouchableOpacity>
+              {/* 인라인 DatePicker 표시 */}
+              {showStartDatePicker && (
+                <View style={styles.inlinePickerContainer}>
+                  <Text style={styles.pickerTitle}>시작 날짜 선택</Text>
+                  <DateTimePicker
+                    value={startDate}
+                    mode="date"
+                    display="compact"
+                    onChange={onStartDateChange}
+                    minimumDate={new Date()}
+                    style={styles.inlinePicker}
+                  />
                 </View>
+              )}
+
+              {showEndDatePicker && (
+                <View style={styles.inlinePickerContainer}>
+                  <Text style={styles.pickerTitle}>종료 날짜 선택</Text>
+                  <DateTimePicker
+                    value={endDate}
+                    mode="date"
+                    display="compact"
+                    onChange={onEndDateChange}
+                    minimumDate={startDate}
+                    style={styles.inlinePicker}
+                  />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.dateTimeSection}>
+              <Text style={styles.label}>시간</Text>
+              <View style={styles.dateRow}>
+                <TouchableOpacity
+                  style={[styles.timeButton, showStartTimePicker && styles.activeButton]}
+                  onPress={() => setShowStartTimePicker(!showStartTimePicker)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.timeText}>{formatTime(startTime)}</Text>
+                </TouchableOpacity>
+                <Text style={styles.timeSeparator}>~</Text>
+                <TouchableOpacity
+                  style={[styles.timeButton, showEndTimePicker && styles.activeButton]}
+                  onPress={() => setShowEndTimePicker(!showEndTimePicker)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.timeText}>{formatTime(endTime)}</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* 시간 선택 */}
-              <View style={styles.dateTimeSection}>
-                <Text style={styles.label}>시간</Text>
-                <View style={styles.dateRow}>
-                  <TouchableOpacity
-                    style={[styles.timeButton, showStartTimePicker && styles.activeButton]}
-                    onPress={() => {
-                      console.log('시작 시간 버튼 클릭');
-                      // 다른 picker들 닫기
-                      setShowStartDatePicker(false);
-                      setShowEndDatePicker(false);
-                      setShowEndTimePicker(false);
-                      // 시작 시간 picker 토글
-                      setShowStartTimePicker(!showStartTimePicker);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="time-outline" size={20} color="#666" />
-                    <Text style={styles.timeText}>{formatTime(startTime)}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.timeSeparator}>~</Text>
-                  <TouchableOpacity
-                    style={[styles.timeButton, showEndTimePicker && styles.activeButton]}
-                    onPress={() => {
-                      console.log('종료 시간 버튼 클릭');
-                      // 다른 picker들 닫기
-                      setShowStartDatePicker(false);
-                      setShowEndDatePicker(false);
-                      setShowStartTimePicker(false);
-                      // 종료 시간 picker 토글
-                      setShowEndTimePicker(!showEndTimePicker);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="time-outline" size={20} color="#666" />
-                    <Text style={styles.timeText}>{formatTime(endTime)}</Text>
-                  </TouchableOpacity>
+              {/* 인라인 TimePicker 표시 */}
+              {showStartTimePicker && (
+                <View style={styles.inlinePickerContainer}>
+                  <Text style={styles.pickerTitle}>시작 시간 선택</Text>
+                  <DateTimePicker
+                    value={startTime}
+                    mode="time"
+                    display="compact"
+                    onChange={onStartTimeChange}
+                    style={styles.inlinePicker}
+                  />
                 </View>
-              </View>
+              )}
 
-              {/* 설명 입력 */}
-              <View style={styles.inputSection}>
-                <Text style={styles.label}>설명 (선택사항)</Text>
-                <TextInput
-                  style={styles.descriptionInput}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="일정에 대한 자세한 설명을 입력하세요"
-                  placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={4}
-                  maxLength={200}
-                  textAlignVertical="top"
-                />
-                <Text style={styles.characterCount}>{description.length}/200</Text>
-              </View>
-            </ScrollView>
-          </View>
+              {showEndTimePicker && (
+                <View style={styles.inlinePickerContainer}>
+                  <Text style={styles.pickerTitle}>종료 시간 선택</Text>
+                  <DateTimePicker
+                    value={endTime}
+                    mode="time"
+                    display="compact"
+                    onChange={onEndTimeChange}
+                    style={styles.inlinePicker}
+                  />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>설명 (선택사항)</Text>
+              <TextInput
+                style={styles.descriptionInput}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="일정에 대한 자세한 설명을 입력하세요"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                maxLength={200}
+                textAlignVertical="top"
+              />
+              <Text style={styles.characterCount}>{description.length}/200</Text>
+            </View>
+          </ScrollView>
         </View>
-      </Modal>
-
-      {/* DateTimePicker들을 별도 Modal로 렌더링 */}
-      {showStartDatePicker && (
-        <DateTimePicker
-          testID="startDatePicker"
-          value={startDate}
-          mode="date"
-          is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onStartDateChange}
-          minimumDate={new Date()}
-        />
-      )}
-
-      {showEndDatePicker && (
-        <DateTimePicker
-          testID="endDatePicker"
-          value={endDate}
-          mode="date"
-          is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onEndDateChange}
-          minimumDate={startDate}
-        />
-      )}
-
-      {showStartTimePicker && (
-        <DateTimePicker
-          testID="startTimePicker"
-          value={startTime}
-          mode="time"
-          is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onStartTimeChange}
-        />
-      )}
-
-      {showEndTimePicker && (
-        <DateTimePicker
-          testID="endTimePicker"
-          value={endTime}
-          mode="time"
-          is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onEndTimeChange}
-        />
-      )}
-    </>
+      </View>
+    </Modal>
   );
 };
 
@@ -611,6 +570,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 4,
+  },
+  inlinePickerContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F8F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3E8FF',
+  },
+  pickerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3F4E7C',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  inlinePicker: {
+    alignSelf: 'center',
   },
 });
 
