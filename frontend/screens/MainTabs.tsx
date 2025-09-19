@@ -15,7 +15,6 @@ import SearchScreen from './search/SearchScreen';
 import SubjectDetailScreen from './subject/SubjectDetailScreen';
 import SubjectListScreen from './subject/SubjectListScreen';
 import SubjectInnerScreen from './subject/SubjectInnerScreen';
-import PdfViewerScreen from './subject/PdfViewerScreen';
 import PDFDrawingScreen from './subject/PDFDrawingScreen';
 import AudioPlayerScreen from './subject/AudioPlayerScreen';
 
@@ -32,7 +31,6 @@ export type SubjectStackParamList = {
   SubjectList: undefined;
   SubjectDetail: { subject: any };
   SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
-  PdfViewerScreen: { file: any; fileUri: string; subjectColor: string };
   PDFDrawingScreen: { file: any; fileUri: string; subjectColor: string };
   AudioPlayerScreen: { file: any; fileUri: string; subjectColor: string };
 };
@@ -43,7 +41,6 @@ function SubjectStack() {
       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
       <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
-      <Stack.Screen name="PdfViewerScreen" component={PdfViewerScreen as any} />
       <Stack.Screen name="PDFDrawingScreen" component={PDFDrawingScreen as any} />
       <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
     </Stack.Navigator>

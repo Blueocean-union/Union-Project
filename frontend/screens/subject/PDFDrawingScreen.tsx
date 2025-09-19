@@ -4,36 +4,26 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Dimensions,
   PanResponder,
   Alert,
   Platform,
-  ScrollView,
-  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Pdf from 'react-native-pdf';
 import Svg, { Path, Circle } from 'react-native-svg';
-import * as FileSystem from 'expo-file-system';
 import api from '../../libs/api/axios';
 
-interface PDFDrawingScreenProps {
-  route: {
-    params: {
-      file: {
-        id: number;
-        folderId: number;
-        originalFileName: string;
-        contentType: string;
-        size: number;
-        updatedAt: string;
-        deleted: boolean;
-      };
-      fileUri: string;
-      subjectColor: string;
-    };
-  };
+interface FileItem {
+  id: number;
+  folderId: number;
+  originalFileName: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
 }
 
 interface DrawingPath {
@@ -50,6 +40,16 @@ interface DrawingPoint {
   y: number;
 }
 
+interface PDFDrawingScreenProps {
+  route: {
+    params: {
+      file: FileItem;
+      fileUri: string;
+      subjectColor: string;
+    };
+  };
+}
+
 export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const { file, fileUri, subjectColor } = route.params;
   const navigation = useNavigation();
@@ -57,6 +57,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // PDF 관련 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -70,6 +71,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
   
   // Refs
+  const pdfRef = useRef<any>(null);
   const svgRef = useRef<any>(null);
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -243,27 +245,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // useEffect로 필기 데이터 로드
   useEffect(() => {
     loadAnnotations();
-    setLoading(false); // PDF 로딩 시뮬레이션
-    console.log('PDFDrawingScreen 로드됨:', {
-      fileId: file.id,
-      fileName: file.originalFileName,
-      fileUri: fileUri,
-      contentType: file.contentType
-    });
-  }, [file.id, fileUri]);
-
-  // 툴바 핸들러
-  const handleToolChange = (tool: string) => {
-    setCurrentTool(tool);
-  };
-
-  const handleColorChange = (color: string) => {
-    setCurrentColor(color);
-  };
-
-  const handleClearAnnotations = () => {
-    console.log('필기 지우기');
-  };
+  }, [file.id]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -279,11 +261,17 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           {file.originalFileName}
         </Text>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerActionButton}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={handleVoiceRecord}
+          >
             <Ionicons name="mic" size={20} color="white" />
             <Text style={styles.headerActionText}>음성녹음</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerActionButton}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={handleSummarize}
+          >
             <Ionicons name="create" size={20} color="white" />
             <Text style={styles.headerActionText}>요약하기</Text>
           </TouchableOpacity>
@@ -316,6 +304,13 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           >
             <Ionicons name="remove-circle-outline" size={20} color="white" />
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.toolButton]}
+            onPress={handleClearAnnotations}
+          >
+            <Ionicons name="trash-outline" size={20} color="white" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -335,7 +330,6 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
               onPress={() => {
                 setError(null);
                 setLoading(true);
-                setTimeout(() => setLoading(false), 1000);
               }}
             >
               <Text style={styles.retryButtonText}>다시 시도</Text>
@@ -345,28 +339,48 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
         
         {!loading && !error && (
           <View style={styles.pdfWrapper} {...panResponder.panHandlers}>
-            {/* PDF 내용 시뮬레이션 - 실제 PDF 뷰어 대신 */}
-            <ScrollView 
+            <Pdf
+              ref={pdfRef}
+              source={{ 
+                uri: fileUri,
+                cache: true,
+                cacheFileName: `pdf_${file.id}.pdf`
+              }}
               style={styles.pdf}
-              contentContainerStyle={styles.pdfContent}
-              showsVerticalScrollIndicator={true}
-            >
-              <View style={styles.pdfPage}>
-                <Text style={styles.pdfText}>
-                  📄 {file.originalFileName}
-                </Text>
-                <Text style={styles.pdfInfo}>
-                  파일 크기: {(file.size / 1024 / 1024).toFixed(2)} MB
-                </Text>
-                <Text style={styles.pdfInfo}>
-                  업로드 날짜: {new Date(file.updatedAt).toLocaleDateString()}
-                </Text>
-                <Text style={styles.pdfPlaceholder}>
-                  PDF 뷰어가 로드되었습니다.{'\n'}
-                  필기 기능을 사용할 수 있습니다.
-                </Text>
-              </View>
-            </ScrollView>
+              onLoadComplete={(numberOfPages) => {
+                console.log('PDF 로드 완료:', numberOfPages, '페이지');
+                setTotalPages(numberOfPages);
+                setLoading(false);
+                setError(null);
+              }}
+              onPageChanged={(page) => {
+                console.log('페이지 변경:', page);
+                setCurrentPage(page);
+              }}
+              onError={(error: any) => {
+                console.error('PDF 로드 오류:', error);
+                setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
+                setLoading(false);
+              }}
+              enablePaging={true}
+              enableRTL={false}
+              enableAntialiasing={true}
+              enableAnnotationRendering={true}
+              password=""
+              spacing={0}
+              scale={scale}
+              minScale={0.5}
+              maxScale={3}
+              horizontal={false}
+              page={currentPage}
+              onScaleChanged={(scale) => {
+                console.log('스케일 변경:', scale);
+                setScale(scale);
+              }}
+              onLoadProgress={(percent) => {
+                console.log('PDF 로딩 진행률:', percent);
+              }}
+            />
             
             {/* SVG 필기 오버레이 */}
             <View style={styles.svgOverlay}>
@@ -374,9 +388,9 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
                 ref={svgRef}
                 style={styles.svg}
                 width={screenWidth}
-                height={screenHeight - 200}
+                height={screenHeight - 200} // 헤더와 툴바 높이 제외
               >
-                {/* 저장된 필기 경로들 */}
+                {/* 저장된 필기 경로들 (현재 페이지만) */}
                 {drawingPaths
                   .filter(path => path.page === currentPage)
                   .map((path) => (
@@ -511,39 +525,6 @@ const styles = StyleSheet.create({
   pdf: {
     flex: 1,
     backgroundColor: 'white',
-  },
-  pdfContent: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  pdfPage: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  pdfText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  pdfInfo: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-  },
-  pdfPlaceholder: {
-    fontSize: 18,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 40,
-    lineHeight: 24,
   },
   svgOverlay: {
     position: 'absolute',
