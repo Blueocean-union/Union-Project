@@ -5,7 +5,9 @@ import React from 'react';
 import CalendarAppScreen from './schedule/CalendarAppScreen';
 import MainScreen from './home/MainScreen';
 import LogoutScreen from './auth/LogoutScreen';
-import QuestionStack from './question/QuestionStack'; // Updated import path
+import QuestionCategoryScreen from './question/QuestionCategoryScreen';
+import QuestionDetailScreen from './question/QuestionDetailScreen';
+import QuestionListScreen from './question/QuestionListScreen';
 import QuizResultScreen from './quiz/QuizResultScreen';
 import QuizRoomScreen from './quiz/QuizRoomScreen';
 import QuizSelectScreen from './quiz/QuizSelectScreen';
@@ -13,7 +15,7 @@ import SearchScreen from './search/SearchScreen';
 import SubjectDetailScreen from './subject/SubjectDetailScreen';
 import SubjectListScreen from './subject/SubjectListScreen';
 import SubjectInnerScreen from './subject/SubjectInnerScreen';
-import PdfViewerScreen from './subject/PdfViewerScreen';
+import PDFDrawingScreen from './subject/PDFDrawingScreen';
 import AudioPlayerScreen from './subject/AudioPlayerScreen';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +31,7 @@ export type SubjectStackParamList = {
   SubjectList: undefined;
   SubjectDetail: { subject: any };
   SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
-  PdfViewerScreen: { file: any; fileUri: string; subjectColor: string };
+  PDFDrawingScreen: { file: any; fileUri: string; subjectColor: string };
   AudioPlayerScreen: { file: any; fileUri: string; subjectColor: string };
 };
 
@@ -39,8 +41,18 @@ function SubjectStack() {
       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
       <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
-      <Stack.Screen name="PdfViewerScreen" component={PdfViewerScreen as any} />
+      <Stack.Screen name="PDFDrawingScreen" component={PDFDrawingScreen as any} />
       <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
+    </Stack.Navigator>
+  );
+}
+
+function QuestionStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="QuestionCategory" component={QuestionCategoryScreen} />
+      <Stack.Screen name="QuestionList" component={QuestionListScreen} />
+      <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen as any} />
     </Stack.Navigator>
   );
 }
