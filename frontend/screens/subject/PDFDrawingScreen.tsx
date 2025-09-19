@@ -68,7 +68,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // PDF 관련 상태
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1);
-  const [loading, setLoading] = useState(true); // 초기 로딩 상태
+  const [loading, setLoading] = useState(false); // 초기 로딩 상태를 false로 변경
   const [error, setError] = useState<string | null>(null);
   const [pdfLoaded, setPdfLoaded] = useState(false); // PDF 로드 상태 추가
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 }); // PDF 실제 렌더 크기
@@ -151,7 +151,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       console.log('✅ 필기 데이터 저장 성공');
     } catch (error) {
       console.error('필기 데이터 저장 실패:', error);
-      Alert.alert('오류', '필기를 저장할 수 없습니다.');
+      console.error('필기 저장 실패:', error);
     }
   }, [file.id]);
 
@@ -215,13 +215,20 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
 
   // 지우개 기능
   const eraseAtPoint = useCallback((x: number, y: number) => {
-    const eraserRadius = 20;
+    const eraserRadius = 30; // 지우개 반경 증가
+    
+    console.log('🧹 지우개 사용:', x, y, '반경:', eraserRadius);
     
     const updatedPaths = drawingPaths.filter((path) => {
-      return !isPathInEraserRange(path, x, y, eraserRadius);
+      const shouldKeep = !isPathInEraserRange(path, x, y, eraserRadius);
+      if (!shouldKeep) {
+        console.log('🗑️ 경로 삭제:', path.id);
+      }
+      return shouldKeep;
     });
     
     if (updatedPaths.length !== drawingPaths.length) {
+      console.log('🧹 지우개 결과:', drawingPaths.length, '->', updatedPaths.length);
       setDrawingPaths(updatedPaths);
       saveAnnotations(updatedPaths);
     }
@@ -229,6 +236,8 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
 
   // 그리기 시작
   const startDrawing = useCallback((x: number, y: number) => {
+    console.log('🖊️ startDrawing 호출:', { x, y, currentTool });
+    
     if (currentTool === 'eraser') {
       eraseAtPoint(x, y);
       return;
@@ -244,6 +253,8 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     } else if (currentTool === 'pen') {
       setCurrentWidth(2);
     }
+    
+    console.log('🖊️ 그리기 시작됨:', { isDrawing: true, currentPath: `M${x},${y}` });
   }, [currentTool, eraseAtPoint]);
 
   // 그리기 중
@@ -253,7 +264,10 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       return;
     }
     
-    if (!isDrawing) return;
+    if (!isDrawing) {
+      console.log('⚠️ 그리기 중이 아님 - continueDrawing 무시');
+      return;
+    }
     
     const newPoints = [...currentPoints, { x, y }];
     setCurrentPoints(newPoints);
@@ -269,11 +283,18 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
         setCurrentPath(prev => `${prev} L${x},${y}`);
       }
     }
-  }, [currentTool, isDrawing, currentPoints, eraseAtPoint]);
+    
+    console.log('🖊️ 그리기 계속:', { x, y, currentPath: currentPath });
+  }, [currentTool, isDrawing, currentPoints, eraseAtPoint, currentPath]);
 
   // 그리기 종료
   const endDrawing = useCallback(() => {
-    if (!isDrawing) return;
+    if (!isDrawing) {
+      console.log('⚠️ 그리기 중이 아님 - endDrawing 무시');
+      return;
+    }
+    
+    console.log('🖊️ 그리기 종료 - 경로 저장:', currentPath);
     
     const newPath: DrawingPath = {
       id: Date.now().toString(),
@@ -290,6 +311,8 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     setIsDrawing(false);
     setCurrentPath('');
     setCurrentPoints([]);
+    
+    console.log('✅ 그리기 완료 - 총 경로 수:', updatedPaths.length);
   }, [isDrawing, currentPath, currentColor, currentWidth, currentTool, drawingPaths, saveAnnotations]);
 
   // PanResponder 설정
@@ -298,6 +321,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (evt) => {
       const { locationX, locationY } = evt.nativeEvent;
+      console.log('🖊️ 그리기 시작:', locationX, locationY);
       startDrawing(locationX, locationY);
     },
     onPanResponderMove: (evt) => {
@@ -305,6 +329,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       continueDrawing(locationX, locationY);
     },
     onPanResponderRelease: () => {
+      console.log('🖊️ 그리기 종료');
       endDrawing();
     },
   }), [startDrawing, continueDrawing, endDrawing]);
@@ -387,7 +412,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
             onPress={() => handleToolChange('eraser')}
           >
-            <Ionicons name="remove-circle-outline" size={20} color="white" />
+            <Ionicons name="brush" size={20} color="white" />
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -422,7 +447,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </View>
         )}
         
-        {!loading && !error && fileUri && (
+        {fileUri && (
           <View 
             style={styles.pdfContainer}
             onLayout={(e) => {
@@ -431,6 +456,12 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
               console.log('📐 PDF 컨테이너 크기:', width, 'x', height);
             }}
           >
+            {loading && (
+              <View style={styles.loadingOverlay}>
+                <Text style={styles.loadingText}>PDF 로딩 중...</Text>
+              </View>
+            )}
+            
             <Pdf
               ref={pdfRef}
               source={{ 
@@ -438,7 +469,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
                 cache: false,
                 cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
               }}
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'white' }]}
               onLoadComplete={(numberOfPages, width, height) => {
                 console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
                 console.log('📄 PDF 크기:', width, 'x', height);
@@ -449,12 +480,20 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
               }}
               onError={(error: any) => {
                 console.error('❌ PDF 로드 오류:', error);
+                console.error('❌ 오류 상세:', error);
+                console.error('❌ 파일 URI:', fileUri);
                 setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
                 setLoading(false);
                 setPdfLoaded(false);
               }}
               onLoadProgress={(percent) => {
                 console.log('📊 PDF 로딩 진행률:', percent + '%');
+                if (percent < 100) {
+                  setLoading(true);
+                }
+              }}
+              onPageChanged={(page, numberOfPages) => {
+                console.log('📄 페이지 변경:', page, '/', numberOfPages);
               }}
               enablePaging={false}
               enableRTL={false}
@@ -474,53 +513,51 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             />
             
             {/* SVG 필기 오버레이 - PDF 위에 절대 위치 */}
-            {pdfLoaded && canvasSize.width > 0 && (
-              <View style={StyleSheet.absoluteFill} {...panResponder().panHandlers}>
-                <Svg
-                  ref={svgRef}
-                  width={canvasSize.width}
-                  height={canvasSize.height}
-                >
-                  {/* 저장된 필기 경로들 */}
-                  {drawingPaths.map((path) => (
-                    <Path
-                      key={path.id}
-                      d={path.path}
-                      stroke={path.color}
-                      strokeWidth={path.width}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={path.tool === 'highlighter' ? 0.5 : 1}
-                    />
-                  ))}
-                  
-                  {/* 현재 그리는 경로 */}
-                  {isDrawing && currentPath && (
-                    <Path
-                      d={currentPath}
-                      stroke={currentColor}
-                      strokeWidth={currentWidth}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={currentTool === 'highlighter' ? 0.5 : 1}
-                    />
-                  )}
-                  
-                  {/* 현재 그리는 점들 */}
-                  {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
-                    <Circle
-                      key={index}
-                      cx={point.x}
-                      cy={point.y}
-                      r={currentWidth / 2}
-                      fill={currentColor}
-                    />
-                  ))}
-                </Svg>
-              </View>
-            )}
+            <View style={StyleSheet.absoluteFill} {...panResponder().panHandlers}>
+              <Svg
+                ref={svgRef}
+                width={canvasSize.width || screenWidth}
+                height={canvasSize.height || screenHeight - 200}
+              >
+                {/* 저장된 필기 경로들 */}
+                {drawingPaths.map((path) => (
+                  <Path
+                    key={path.id}
+                    d={path.path}
+                    stroke={path.color}
+                    strokeWidth={path.width}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                  />
+                ))}
+                
+                {/* 현재 그리는 경로 */}
+                {isDrawing && currentPath && (
+                  <Path
+                    d={currentPath}
+                    stroke={currentColor}
+                    strokeWidth={currentWidth}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={currentTool === 'highlighter' ? 0.5 : 1}
+                  />
+                )}
+                
+                {/* 현재 그리는 점들 */}
+                {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
+                  <Circle
+                    key={index}
+                    cx={point.x}
+                    cy={point.y}
+                    r={currentWidth / 2}
+                    fill={currentColor}
+                  />
+                ))}
+              </Svg>
+            </View>
           </View>
         )}
       </View>
@@ -624,6 +661,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.9)',
+    zIndex: 10,
   },
   loadingText: {
     fontSize: 16,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -90,8 +90,8 @@ export default function SubjectFileStorage({
     }
   };
 
-  // 파일 목록 조회
-  const fetchFiles = async () => {
+  // 파일 목록 조회 (메모이제이션)
+  const fetchFiles = useCallback(async () => {
     try {
       setLoading(true);
       console.log('🔄 파일 목록 조회 시작, folderId:', folderId);
@@ -125,10 +125,10 @@ export default function SubjectFileStorage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [folderId]); // folderId가 변경될 때만 재생성
 
-  // 파일 업로드 (Presigned URL 방식)
-  const uploadFile = async () => {
+  // 파일 업로드 (Presigned URL 방식) - 메모이제이션
+  const uploadFile = useCallback(async () => {
     try {
       console.log('🔄 파일 업로드 시작');
       console.log('📁 사용 중인 폴더 ID:', folderId);
@@ -243,10 +243,10 @@ export default function SubjectFileStorage({
     } finally {
       setUploading(false);
     }
-  };
+  }, [folderId]); // folderId가 변경될 때만 재생성
 
-  // 파일 다운로드 및 열기
-  const openFile = async (file: FileItem) => {
+  // 파일 다운로드 및 열기 - 메모이제이션
+  const openFile = useCallback(async (file: FileItem) => {
     try {
       console.log('📂 openFile 시작:', file.originalFileName);
       setLoading(true);
@@ -315,159 +315,76 @@ export default function SubjectFileStorage({
           console.log('⚠️ 기존 파일 삭제 중 오류 (무시):', error);
         }
         
-        // PDF 파일 다운로드 (재시도 로직 포함)
-        let downloadResult;
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        // AWS S3 presigned URL을 그대로 사용하되, fetch로 다운로드 후 파일로 저장
-        console.log('🔧 원본 다운로드 URL 사용:', downloadUrl);
-        
-        while (retryCount < maxRetries) {
-          try {
-            console.log(`📥 PDF 파일 다운로드 시작... (시도 ${retryCount + 1}/${maxRetries})`);
-            
-            // S3 URL에서 문제가 되는 response-content-disposition 파라미터 제거
-            const url = new URL(downloadUrl);
-            url.searchParams.delete('response-content-disposition');
-            const cleanUrl = url.toString();
-            console.log('🔧 정리된 S3 URL:', cleanUrl);
-            
-            // 먼저 정리된 S3 URL로 시도
-            let response;
-            try {
-              response = await fetch(cleanUrl, {
-                method: 'GET',
-                headers: {
-                  'Accept': 'application/pdf',
-                },
-              });
-              
-              // S3 URL이 4xx 오류를 반환하면 원본 URL로 재시도
-              if (!response.ok && response.status >= 400 && response.status < 500) {
-                console.warn(`⚠️ 정리된 S3 URL 실패 (${response.status}), 원본 S3 URL로 재시도`);
-                
-                // 원본 S3 URL로 재시도
-                const originalResponse = await fetch(downloadUrl, {
-                  method: 'GET',
-                  headers: {
-                    'Accept': 'application/pdf',
-                  },
-                });
-                
-                if (originalResponse.ok) {
-                  const arrayBuffer = await originalResponse.arrayBuffer();
-                  const uint8Array = new Uint8Array(arrayBuffer);
-                  
-                  // 큰 파일을 위한 청크 단위 Base64 변환
-                  const chunkSize = 8192; // 8KB 청크
-                  let base64 = '';
-                  
-                  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-                    const chunk = uint8Array.slice(i, i + chunkSize);
-                    base64 += btoa(String.fromCharCode(...chunk));
-                  }
-                  
-                  await FileSystem.writeAsStringAsync(localPath, base64, {
-                    encoding: FileSystem.EncodingType.Base64,
-                  });
-                  downloadResult = { uri: localPath };
-                  console.log('✅ 원본 S3 URL PDF 파일 다운로드 완료:', downloadResult.uri);
-                  break; // 성공 시 루프 종료
-                } else {
-                  console.warn(`⚠️ 원본 S3 URL도 실패 (${originalResponse.status}), 프록시로 폴백`);
-                  
-                  // 프록시 다운로드 함수 사용
-                  await proxyDownloadToCache(file.id, localPath, 'application/pdf');
-                  downloadResult = { uri: localPath };
-                  console.log('✅ 프록시 PDF 파일 다운로드 완료:', downloadResult.uri);
-                  break; // 성공 시 루프 종료
-                }
-              }
-            } catch (s3Error) {
-              console.warn('⚠️ S3 URL 네트워크 오류, 백엔드 프록시로 폴백:', s3Error);
-              
-              // 프록시 다운로드 함수 사용
-              await proxyDownloadToCache(file.id, localPath, 'application/pdf');
-              downloadResult = { uri: localPath };
-              console.log('✅ 프록시 PDF 파일 다운로드 완료:', downloadResult.uri);
-              break; // 성공 시 루프 종료
-            }
-            
-            if (!response.ok) {
-              throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
-            }
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            // 큰 파일을 위한 청크 단위 Base64 변환
-            const chunkSize = 8192; // 8KB 청크
-            let base64 = '';
-            
-            for (let i = 0; i < uint8Array.length; i += chunkSize) {
-              const chunk = uint8Array.slice(i, i + chunkSize);
-              base64 += btoa(String.fromCharCode(...chunk));
-            }
-            
-            // base64를 파일로 저장
-            await FileSystem.writeAsStringAsync(localPath, base64, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            
-            downloadResult = { uri: localPath };
-            console.log('✅ PDF 파일 다운로드 완료:', downloadResult.uri);
-            
-            // 다운로드된 파일 검증
-            const downloadedFileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-            console.log('📊 다운로드된 파일 정보:', {
-              exists: downloadedFileInfo.exists,
-              uri: downloadedFileInfo.uri
-            });
-            
-            if (!downloadedFileInfo.exists) {
-              throw new Error('PDF 파일 다운로드 실패: 파일이 존재하지 않습니다.');
-            }
-            
-            // PDF 파일 헤더 검증 (PDF 파일은 %PDF로 시작해야 함)
-            const fileContent = await FileSystem.readAsStringAsync(downloadResult.uri, {
-              encoding: FileSystem.EncodingType.UTF8,
-              length: 4
-            });
-            console.log('🔍 PDF 파일 헤더 검증:', fileContent);
-            
-            if (!fileContent.startsWith('%PDF')) {
-              throw new Error('PDF 파일이 손상되었습니다: 올바른 PDF 헤더가 없습니다.');
-            }
-            
-            console.log('✅ PDF 파일 검증 완료');
-            break; // 성공 시 루프 종료
-            
-          } catch (error) {
-            retryCount++;
-            console.error(`❌ PDF 다운로드 실패 (시도 ${retryCount}/${maxRetries}):`, error);
-            
-            if (retryCount >= maxRetries) {
-              throw new Error(`PDF 파일 다운로드 실패: ${maxRetries}번 시도 후 실패`);
-            }
-            
-            // 재시도 전 잠시 대기
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // --- PDF 파일 다운로드 (downloadAsync 사용, S3 -> 프록시 폴백) ---
+        const tryDownloadWithUrl = async (url: string, headers?: Record<string, string>) => {
+          const res = await FileSystem.downloadAsync(url, localPath, { headers });
+          if (res.status !== 200) {
+            throw new Error(`다운로드 실패: ${res.status}`);
           }
+          return res.uri;
+        };
+
+        try {
+          console.log(`📥 PDF 파일 다운로드 시작...`);
+          // 1) S3 presign URL 정리 (response-content-disposition 제거)
+          const urlObj = new URL(downloadUrl);
+          urlObj.searchParams.delete('response-content-disposition');
+          const cleanUrl = urlObj.toString();
+          console.log('🔧 정리된 S3 URL:', cleanUrl);
+
+          // 2) S3로 다운로드 시도
+          try {
+            const s3Uri = await tryDownloadWithUrl(cleanUrl, { Accept: 'application/pdf' });
+            console.log('✅ 정리된 S3 URL PDF 파일 다운로드 완료:', s3Uri);
+            fileUri = s3Uri;
+          } catch (e1: any) {
+            console.warn(`⚠️ S3 정리 URL 실패: ${e1?.message ?? e1}`);
+            try {
+              // 원본 S3 URL로 재시도
+              const s3OrigUri = await tryDownloadWithUrl(downloadUrl, { Accept: 'application/pdf' });
+              console.log('✅ 원본 S3 URL PDF 파일 다운로드 완료:', s3OrigUri);
+              fileUri = s3OrigUri;
+            } catch (e2: any) {
+              console.warn(`⚠️ 원본 S3 URL도 실패: ${e2?.message ?? e2}`);
+              // 3) 프록시로 폴백 (JWT 필요)
+              const token = await AsyncStorage.getItem('accessToken');
+              const proxyUrl = `http://52.78.209.115:8080/api/files/${file.id}/download`;
+              const proxyUri = await tryDownloadWithUrl(proxyUrl, {
+                Accept: 'application/pdf',
+                Authorization: `Bearer ${token ?? ''}`,
+              });
+              console.log('✅ 프록시 PDF 파일 다운로드 완료:', proxyUri);
+              fileUri = proxyUri;
+            }
+          }
+
+          // 파일 존재 검증
+          const info = await FileSystem.getInfoAsync(fileUri);
+          if (!info.exists) throw new Error('다운로드 후 파일이 존재하지 않습니다.');
+          
+          // PDF 헤더 검증 (Base64로 5바이트만 읽어 'JVBER' (= %PDF) 확인)
+          const head = await FileSystem.readAsStringAsync(fileUri, { 
+            encoding: FileSystem.EncodingType.Base64, 
+            length: 5 
+          });
+          if (!head.startsWith('JVBER')) {
+            throw new Error('PDF 헤더가 올바르지 않습니다.');
+          }
+          console.log('✅ PDF 파일 검증 완료');
+        } catch (err) {
+          throw err; // 바깥 catch로 던져서 기존 에러 핸들링 사용
         }
-        
-        fileUri = downloadResult!.uri;
       }
 
       // 파일 타입에 따라 다른 화면으로 이동
       if (file.contentType === 'application/pdf') {
-        console.log('📄 PDF 파일 - PDFDrawingScreen으로 네비게이션');
+        console.log('📄 PDF 파일 - PDFDrawing으로 네비게이션');
         console.log('📄 전달할 파일 정보:', file);
         console.log('📄 전달할 파일 URI:', fileUri);
         console.log('📄 전달할 주제 색상:', subjectColor);
         
         // PDF 필기 화면으로 바로 이동
-        navigation.navigate('PDFDrawingScreen', {
+        navigation.navigate('PDFDrawing', {
           file: file,
           fileUri: fileUri,
           subjectColor: subjectColor
@@ -489,12 +406,12 @@ export default function SubjectFileStorage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [subjectColor, navigation]); // subjectColor와 navigation이 변경될 때만 재생성
 
   // 오디오 재생은 AudioPlayerOverlay에서 처리
 
-  // 파일 삭제
-  const deleteFile = async (fileId: number) => {
+  // 파일 삭제 - 메모이제이션
+  const deleteFile = useCallback(async (fileId: number) => {
     Alert.alert(
       '파일 삭제',
       '정말로 이 파일을 삭제하시겠습니까?',
@@ -520,38 +437,38 @@ export default function SubjectFileStorage({
         },
       ]
     );
-  };
+  }, [fetchFiles]); // fetchFiles가 변경될 때만 재생성
 
-  // 파일 아이콘 결정
-  const getFileIcon = (contentType: string) => {
+  // 파일 아이콘 결정 - 메모이제이션
+  const getFileIcon = useCallback((contentType: string) => {
     if (contentType === 'application/pdf') return 'document-text';
     if (contentType.includes('audio/') || contentType.includes('video/')) return 'mic';
     return 'document';
-  };
+  }, []);
 
-  // 파일 타입 검증
-  const isValidFileType = (contentType: string) => {
+  // 파일 타입 검증 - 메모이제이션
+  const isValidFileType = useCallback((contentType: string) => {
     return contentType === 'application/pdf' || contentType.includes('audio/') || contentType.includes('video/');
-  };
+  }, []);
 
-  // 파일 크기 포맷팅
-  const formatFileSize = (bytes: number) => {
+  // 파일 크기 포맷팅 - 메모이제이션
+  const formatFileSize = useCallback((bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  }, []);
 
-  // 파일 액션 모달 열기
-  const openFileActions = (file: FileItem) => {
+  // 파일 액션 모달 열기 - 메모이제이션
+  const openFileActions = useCallback((file: FileItem) => {
     setSelectedFile(file);
     setNewFileName(file.originalFileName);
     setShowFileActions(true);
-  };
+  }, []);
 
-  // 파일 이름 수정
-  const updateFileName = async () => {
+  // 파일 이름 수정 - 메모이제이션
+  const updateFileName = useCallback(async () => {
     if (!selectedFile || !newFileName.trim()) return;
 
     try {
@@ -572,10 +489,10 @@ export default function SubjectFileStorage({
       console.error('파일 이름 수정 실패:', error);
       Alert.alert('오류', '파일 이름 수정에 실패했습니다.');
     }
-  };
+  }, [selectedFile, newFileName, files]); // selectedFile, newFileName, files가 변경될 때만 재생성
 
-  // 파일 터치 핸들러
-  const handleFileTouch = async (file: FileItem) => {
+  // 파일 터치 핸들러 - 메모이제이션
+  const handleFileTouch = useCallback(async (file: FileItem) => {
     console.log(`[${file.originalFileName}] 터치됨`);
     console.log('📁 파일 타입:', file.contentType);
     console.log('📁 파일 ID:', file.id);
@@ -631,91 +548,56 @@ export default function SubjectFileStorage({
           const cleanUrl = url.toString();
           console.log('🔧 오디오 파일 정리된 S3 URL:', cleanUrl);
           
-          // 먼저 정리된 S3 URL로 시도
-          let response;
+          // --- 오디오 파일 다운로드 (downloadAsync 사용, S3 -> 프록시 폴백) ---
+          const tryDownloadWithUrl = async (url: string, headers?: Record<string, string>) => {
+            const res = await FileSystem.downloadAsync(url, localPath, { headers });
+            if (res.status !== 200) {
+              throw new Error(`다운로드 실패: ${res.status}`);
+            }
+            return res.uri;
+          };
+
           try {
-            response = await fetch(cleanUrl, {
-              method: 'GET',
-              headers: {
-                'Accept': file.contentType,
-              },
-            });
-            
-            // S3 URL이 4xx 오류를 반환하면 원본 URL로 재시도
-            if (!response.ok && response.status >= 400 && response.status < 500) {
-              console.warn(`⚠️ 정리된 S3 URL 실패 (${response.status}), 원본 S3 URL로 재시도`);
-              
-              // 원본 S3 URL로 재시도
-              const originalResponse = await fetch(downloadUrl, {
-                method: 'GET',
-                headers: {
-                  'Accept': file.contentType,
-                },
-              });
-              
-              if (originalResponse.ok) {
-                const arrayBuffer = await originalResponse.arrayBuffer();
-                const uint8Array = new Uint8Array(arrayBuffer);
-                
-                // 큰 파일을 위한 청크 단위 Base64 변환
-                const chunkSize = 8192; // 8KB 청크
-                let base64 = '';
-                
-                for (let i = 0; i < uint8Array.length; i += chunkSize) {
-                  const chunk = uint8Array.slice(i, i + chunkSize);
-                  base64 += btoa(String.fromCharCode(...chunk));
-                }
-                
-                await FileSystem.writeAsStringAsync(localPath, base64, {
-                  encoding: FileSystem.EncodingType.Base64,
+            console.log(`📥 오디오 파일 다운로드 시작...`);
+            // 1) S3 presign URL 정리 (response-content-disposition 제거)
+            const urlObj = new URL(downloadUrl);
+            urlObj.searchParams.delete('response-content-disposition');
+            const cleanUrl = urlObj.toString();
+            console.log('🔧 정리된 S3 URL:', cleanUrl);
+
+            // 2) S3로 다운로드 시도
+            try {
+              const s3Uri = await tryDownloadWithUrl(cleanUrl, { Accept: file.contentType });
+              console.log('✅ 정리된 S3 URL 오디오 파일 다운로드 완료:', s3Uri);
+              fileUri = s3Uri;
+            } catch (e1: any) {
+              console.warn(`⚠️ S3 정리 URL 실패: ${e1?.message ?? e1}`);
+              try {
+                // 원본 S3 URL로 재시도
+                const s3OrigUri = await tryDownloadWithUrl(downloadUrl, { Accept: file.contentType });
+                console.log('✅ 원본 S3 URL 오디오 파일 다운로드 완료:', s3OrigUri);
+                fileUri = s3OrigUri;
+              } catch (e2: any) {
+                console.warn(`⚠️ 원본 S3 URL도 실패: ${e2?.message ?? e2}`);
+                // 3) 프록시로 폴백 (JWT 필요)
+                const token = await AsyncStorage.getItem('accessToken');
+                const proxyUrl = `http://52.78.209.115:8080/api/files/${file.id}/download`;
+                const proxyUri = await tryDownloadWithUrl(proxyUrl, {
+                  Accept: file.contentType,
+                  Authorization: `Bearer ${token ?? ''}`,
                 });
-                const downloadResult = { uri: localPath };
-                fileUri = downloadResult.uri;
-                console.log('✅ 원본 S3 URL 오디오 파일 다운로드 완료:', fileUri);
-                return; // 성공 시 함수 종료
-              } else {
-                console.warn(`⚠️ 원본 S3 URL도 실패 (${originalResponse.status}), 프록시로 폴백`);
-                
-                // 프록시 다운로드 함수 사용
-                await proxyDownloadToCache(file.id, localPath, file.contentType);
-                const downloadResult = { uri: localPath };
-                fileUri = downloadResult.uri;
-                return; // 성공 시 함수 종료
+                console.log('✅ 프록시 오디오 파일 다운로드 완료:', proxyUri);
+                fileUri = proxyUri;
               }
             }
-          } catch (s3Error) {
-            console.warn('⚠️ S3 URL 네트워크 오류, 백엔드 프록시로 폴백:', s3Error);
-            
-            // 프록시 다운로드 함수 사용
-            await proxyDownloadToCache(file.id, localPath, file.contentType);
-            const downloadResult = { uri: localPath };
-            fileUri = downloadResult.uri;
-            return; // 성공 시 함수 종료
+
+            // 파일 존재 검증
+            const info = await FileSystem.getInfoAsync(fileUri);
+            if (!info.exists) throw new Error('다운로드 후 파일이 존재하지 않습니다.');
+            console.log('✅ 오디오 파일 검증 완료');
+          } catch (err) {
+            throw err; // 바깥 catch로 던져서 기존 에러 핸들링 사용
           }
-          
-          if (!response.ok) {
-            throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          
-          // 큰 파일을 위한 청크 단위 Base64 변환
-          const chunkSize = 8192; // 8KB 청크
-          let base64 = '';
-          
-          for (let i = 0; i < uint8Array.length; i += chunkSize) {
-            const chunk = uint8Array.slice(i, i + chunkSize);
-            base64 += btoa(String.fromCharCode(...chunk));
-          }
-          
-          // base64를 파일로 저장
-          await FileSystem.writeAsStringAsync(localPath, base64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          
-          const downloadResult = { uri: localPath };
-          fileUri = downloadResult.uri;
         }
 
         setAudioPlayerFile(file);
@@ -727,17 +609,17 @@ export default function SubjectFileStorage({
         setLoading(false);
       }
     }
-  };
+  }, [isValidFileType, openFile, subjectColor]); // isValidFileType, openFile, subjectColor가 변경될 때만 재생성
 
-  // 오디오 플레이어 닫기
-  const closeAudioPlayer = () => {
+  // 오디오 플레이어 닫기 - 메모이제이션
+  const closeAudioPlayer = useCallback(() => {
     setAudioPlayerFile(null);
     setAudioPlayerUri('');
-  };
+  }, []);
 
   useEffect(() => {
     fetchFiles();
-  }, [folderId]);
+  }, [fetchFiles]); // fetchFiles가 변경될 때만 실행
 
   return (
     <View style={styles.container}>

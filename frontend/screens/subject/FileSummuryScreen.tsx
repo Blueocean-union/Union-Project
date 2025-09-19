@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { SubjectStackParamList } from '../../types/navigation';
+import type { SubjectStackParamList } from '../MainTabs';
 import api from '../../libs/api/axios';
 
 interface SummaryResponse {
@@ -39,17 +39,13 @@ export default function FileSummuryScreen({ route }: Props) {
       
       console.log('📄 PDF 요약 요청 시작:', file.originalFileName);
       
-      // FormData 생성
-      const formData = new FormData();
-      formData.append('file', {
-        uri: `file:///data/user/0/com.blueoceanunion.unimateapp/cache/${file.id}.pdf`,
-        type: 'application/pdf',
-        name: file.originalFileName,
-      } as any);
-
-      const response = await api.post('/api/ai/pdfs/summary', formData, {
+      // 파일 ID로 요약 요청 (FormData 대신)
+      const response = await api.post('/api/ai/pdfs/summary', {
+        fileId: file.id,
+        fileName: file.originalFileName
+      }, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
         },
       });
 

@@ -36,6 +36,12 @@ export async function removeFile(fileId: number) {
   await api.delete(`/파일/${fileId}`);
 }
 
+// 파일 이름 수정: PATCH /api/files/{fileId}/rename?newName={newName}
+export async function renameFile(fileId: number, newName: string) {
+  const res = await api.patch(`/api/files/${fileId}/rename?newName=${encodeURIComponent(newName)}`);
+  return res.data;
+}
+
 // 다운로드 URL 생성 (절대경로가 필요하면 api.defaults.baseURL 사용)
 export function buildDownloadUrl(fileId: number) {
   const base = (api.defaults.baseURL || '').replace(/\/+$/, '');
