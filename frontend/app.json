@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.blueoceanunion.unimateapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +29,13 @@
     "plugins": [
       "expo-router",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1a0f7642-c9ab-40c2-b3f2-4188ad81b83d"
+      }
+    },
+    "owner": "blueocean-union"
   }
 }

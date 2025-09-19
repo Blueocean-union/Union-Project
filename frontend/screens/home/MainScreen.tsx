@@ -4,7 +4,6 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import Svg, { Circle } from 'react-native-svg'; // SVG 패키지가 없어서 주석 처리
 
 interface Subject {
   id: number;
@@ -47,8 +46,8 @@ const getUserInfo = async (token: string): Promise<User | null> => {
         'Content-Type': 'application/json'
       }
     });
-    console.log('API 응답 전체:', response); // 전체 응답 확인
-    console.log('API 응답 데이터:', response.data); // 데이터만 확인
+    console.log('API 응답 전체:', response);
+    console.log('API 응답 데이터:', response.data);
     return response.data;
   } catch (error) {
     console.error('사용자 정보 조회 실패:', error);
@@ -58,7 +57,6 @@ const getUserInfo = async (token: string): Promise<User | null> => {
 
 const getSubjects = async (): Promise<Subject[]> => {
   try {
-    // accessToken으로 불러오기 (키 이름 맞추기)
     const token = await AsyncStorage.getItem('accessToken');
     if (!token) throw new Error('토큰 없음');
 
@@ -85,9 +83,6 @@ const getSubjects = async (): Promise<Subject[]> => {
     return [];
   }
 };
-
-
-
 
 const getTodaySchedules = async (): Promise<Schedule[]> => {
   try {
@@ -161,9 +156,7 @@ const TaskSection = ({ title, icon, schedules, onToggle, loading }: {
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
-  // 실제 오늘 날짜로 초기화
   const [currentDate, setCurrentDate] = useState(new Date());
-  // 초기값을 오늘 날짜로 설정하거나, 선택된 날짜가 없으면 null
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -197,13 +190,12 @@ const MainScreen = () => {
   const loadUserInfo = async () => {
     setUserLoading(true);
     try {
-      // AsyncStorage에서 토큰 가져오기
       const token = await AsyncStorage.getItem('token');
-      console.log('저장된 토큰:', token); // 토큰 확인
+      console.log('저장된 토큰:', token);
       
       if (token) {
         const userData = await getUserInfo(token);
-        console.log('사용자 정보 응답:', userData); // 디버깅용 로그
+        console.log('사용자 정보 응답:', userData);
         setUser(userData);
       } else {
         console.log('토큰이 없습니다.');
@@ -228,6 +220,7 @@ const MainScreen = () => {
     ));
   };
 
+  // 로그아웃 핸들러 - LogoutScreen으로 네비게이션
   const handleLogout = () => {
     navigation.navigate('Logout');
   };
@@ -271,7 +264,6 @@ const MainScreen = () => {
             const dayOfWeek = (firstDayOfMonth + index) % 7;
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isToday = isCurrentMonth && date === today.getDate();
-            // 선택된 날짜가 있으면 그것을, 없으면 오늘 날짜를 선택된 것처럼 표시
             const isSelected = selectedDate ? date === selectedDate : isToday;
             
             return (
@@ -335,7 +327,6 @@ const MainScreen = () => {
   const completedSchedules = schedules.filter(s => s.isCompleted);
   
   return (
-    
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EEEFF6" />
       
@@ -345,6 +336,7 @@ const MainScreen = () => {
           <Text style={styles.headerUser}>
             {userLoading ? '로딩 중...' : user?.name || '사용자'}
           </Text>
+          {/* 이 TouchableOpacity가 로그아웃 버튼입니다 */}
           <TouchableOpacity onPress={handleLogout}>
             <Ionicons name="person-circle-outline" size={48} color="#3B4B87" />
           </TouchableOpacity>
@@ -372,7 +364,6 @@ const MainScreen = () => {
       </View>
 
       {renderProgressSection()}
-
     </SafeAreaView>
   );
 };
@@ -388,7 +379,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     alignItems: 'center', 
     paddingHorizontal: 70, 
-    paddingVertical: 10, 
+    paddingVertical: 20, 
     backgroundColor: '#EEEFF6' 
   },
   headerTitle: { 
@@ -511,7 +502,7 @@ const styles = StyleSheet.create({
   },
   calendarDay: { 
     width: '14.28%', 
-    height: 26, 
+    height: 27, 
     alignItems: 'center', 
     justifyContent: 'center', 
     marginVertical: 2 
@@ -543,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', 
     borderRadius: 12, 
     padding: 20, 
-    minHeight: 200 
+    minHeight: 280 
   },
   progressContainer: { 
     alignItems: 'center', 

@@ -12,8 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import 'react-native-url-polyfill/auto';
+import AddScheduleModal from './AddScheduleModal'; // 새로 추가
 
-export default function CalendarAppScreen() {
+// navigation prop 타입 정의
+interface CalendarAppScreenProps {
+  navigation: any; // 실제 프로젝트에서는 더 구체적인 타입을 사용하세요
+}
+
+export default function CalendarAppScreen({ navigation }: CalendarAppScreenProps) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(today.getDate());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-based
@@ -22,6 +28,7 @@ export default function CalendarAppScreen() {
   const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
   const [isLoadingMonth, setIsLoadingMonth] = useState(false);
   const [isLoadingToday, setIsLoadingToday] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // 새로 추가
 
   const months = [
     '1월', '2월', '3월', '4월', '5월', '6월',
@@ -127,6 +134,20 @@ export default function CalendarAppScreen() {
     }
   };
 
+  // 일정이 추가된 후 실행되는 함수
+  const handleScheduleAdded = async () => {
+    // 월간 일정과 오늘 일정을 다시 불러옴
+    await fetchSchedulesByMonth(currentYear, currentMonth + 1);
+    
+    const isToday = selectedDate === today.getDate() && 
+                   currentMonth === today.getMonth() && 
+                   currentYear === today.getFullYear();
+    
+    if (isToday) {
+      await fetchTodaySchedules();
+    }
+  };
+
   const categoryColorMap: Record<string, { bg: string, text: string, icon: string }> = {
     '과제': { bg: '#E8F5E8', text: '#2D5D2D', icon: '#4CAF50' },
     '시험': { bg: '#FFF3E0', text: '#EF6C00', icon: '#FB8C00' },
@@ -173,7 +194,7 @@ export default function CalendarAppScreen() {
           if (!usedRows[day]) usedRows[day] = [];
           usedRows[day][availableRow] = true;
         } else if (groups[scheduleKey].endDay === day - 1) {
-          // 연속된 일정인 경우 끝 날짜 업데이트
+          // 연속된 일정인 경우 끝날짜 업데이트
           groups[scheduleKey].endDay = day;
           
           // 연속된 날짜의 같은 행을 사용 중으로 표시
@@ -251,7 +272,7 @@ export default function CalendarAppScreen() {
         
         const left = (segmentStartCol * 14.28) + 2;
         const width = ((segmentEndCol - segmentStartCol + 1) * 14.28) - 4;
-        const top = (row * 67) + 35 + (group.row * 18);
+        const top = (row * 73) + 40 + (group.row * 18);
         
         segments.push(
           <View
@@ -314,12 +335,23 @@ export default function CalendarAppScreen() {
     </View>
   );
 
+  // 선택된 날짜를 Date 객체로 반환하는 함수
+  const getSelectedDateAsDateObject = () => {
+    return new Date(currentYear, currentMonth, selectedDate);
+  };
+
+  // 홈 탭으로 이동하는 함수
+  const navigateToMainScreen = () => {
+    // 탭 네비게이터의 '홈' 탭으로 이동
+    navigation.navigate('홈');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#EEEFF6" />
       
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={navigateToMainScreen}>
           <Ionicons name="chevron-back" size={24} color="#3F4E7C" />
           <Text style={styles.headerTitle}>일정</Text>
         </TouchableOpacity>
@@ -396,7 +428,10 @@ export default function CalendarAppScreen() {
               <Text style={styles.scheduleSectionTitle}>
                 {currentMonth + 1}월 {selectedDate}일 일정
               </Text>
-              <TouchableOpacity style={styles.addButton}>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => setShowAddModal(true)}
+              >
                 <Ionicons name="add" size={18} color="white" />
               </TouchableOpacity>
             </View>
@@ -408,7 +443,7 @@ export default function CalendarAppScreen() {
                 </View>
               ) : getSelectedDateSchedules().length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>이 날에는 일정이 없습니다.</Text>
+                  <Text style={styles.emptyText}>예정된 일정이 없습니다.</Text>
                 </View>
               ) : (
                 getSelectedDateSchedules().map((schedule: any, index: number) => 
@@ -419,6 +454,14 @@ export default function CalendarAppScreen() {
           </View>
         </View>
       </View>
+
+      {/* 일정 추가 모달 */}
+      <AddScheduleModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        selectedDate={getSelectedDateAsDateObject()}
+        onScheduleAdded={handleScheduleAdded}
+      />
     </SafeAreaView>
   );
 }
@@ -468,13 +511,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 15,
     padding: 40,
-    paddingTop:30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550,
+    height: 630,
   },
   monthHeader: {
     flexDirection: 'row',
@@ -483,7 +525,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   monthText: {
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#333',
   },
@@ -494,7 +536,7 @@ const styles = StyleSheet.create({
   weekDayCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 23,
   },
   weekDayText: {
     fontSize: 18,
@@ -508,15 +550,15 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: '14.28%',
-    height: 67,
+    height: 73,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 10,
+    paddingTop: 15,
     position: 'relative',
   },
   selectedDayCircle: {
     position: 'absolute',
-    top: 9,
+    top: 12,
     width: 26,
     height: 26,
     borderRadius: 15,
@@ -562,7 +604,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 550,
+    height: 630,
   },
   scheduleSectionHeader: {
     flexDirection: 'row',
@@ -571,6 +613,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scheduleSectionTitle: {
+    paddingTop:20,
+    paddingLeft:10,
     fontSize: 35,
     fontWeight: 'bold',
     color: '#3F4E7C',
@@ -636,7 +680,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
+    paddingTop:150,
+    fontSize: 24,
+    color: '#b4b4b4ff',
+    fontWeight: '500',
   },
 });
