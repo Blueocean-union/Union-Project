@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getSubjects, deleteSubject as deleteSubjectAPI } from '../../libs/api/subject';
+import { renameFile } from '../../libs/api/files';
 import SubjectCreateModal from './SubjectCreateModal';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SubjectStackParamList } from '../MainTabs';
@@ -111,6 +112,63 @@ export default function SubjectListScreen({ navigation }: Props) {
     }
   };
 
+  // 파일 이름 수정 함수
+  const renameFileHandler = async (fileId: number, currentName: string) => {
+    try {
+      console.log('📝 파일 이름 수정 시작:', { fileId, currentName });
+      
+      // 새 파일명 입력 받기
+      const newName = await new Promise<string>((resolve) => {
+        if (Platform.OS === 'web') {
+          const input = window.prompt('새 파일명을 입력하세요:', currentName);
+          resolve(input || currentName);
+        } else {
+          Alert.prompt(
+            '파일 이름 수정',
+            '새 파일명을 입력하세요:',
+            [
+              { text: '취소', style: 'cancel', onPress: () => resolve(currentName) },
+              { text: '확인', onPress: (text: string | undefined) => resolve(text || currentName) }
+            ],
+            'plain-text',
+            currentName
+          );
+        }
+      });
+
+      if (newName === currentName || !newName.trim()) {
+        console.log('📝 파일명 변경 없음 또는 빈 이름');
+        return;
+      }
+
+      console.log('📝 새 파일명:', newName);
+
+      // API 호출
+      await renameFile(fileId, newName.trim());
+      
+      console.log('✅ 파일 이름 수정 성공');
+      
+      if (Platform.OS === 'web') {
+        alert('파일 이름이 성공적으로 변경되었습니다.');
+      } else {
+        Alert.alert('수정 완료', '파일 이름이 성공적으로 변경되었습니다.');
+      }
+      
+      // 목록 새로고침
+      await fetchSubjects();
+      
+    } catch (error: any) {
+      console.error('❌ 파일 이름 수정 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '알 수 없는 오류가 발생했습니다.';
+      
+      if (Platform.OS === 'web') {
+        alert(`파일 이름 수정에 실패했습니다.\n\n${errorMessage}`);
+      } else {
+        Alert.alert('오류', `파일 이름 수정에 실패했습니다.\n\n${errorMessage}`);
+      }
+    }
+  };
+
   // ActionSheet를 사용한 과목 삭제 함수
   const showSubjectOptions = (subjectId: number, subjectName: string) => {
     console.log('🔍 showSubjectOptions 함수 호출됨:', { subjectId, subjectName });
@@ -120,13 +178,15 @@ export default function SubjectListScreen({ navigation }: Props) {
       // iOS 네이티브에서만 ActionSheet 사용
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['취소', '과목 삭제하기'],
-          destructiveButtonIndex: 1,
+          options: ['취소', '과목 이름 수정', '과목 삭제하기'],
+          destructiveButtonIndex: 2,
           cancelButtonIndex: 0,
           title: `${subjectName} 과목 관리`,
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
+            renameFileHandler(subjectId, subjectName);
+          } else if (buttonIndex === 2) {
             deleteSubject(subjectId, subjectName);
           }
         }
@@ -138,13 +198,13 @@ export default function SubjectListScreen({ navigation }: Props) {
       // 웹에서 테스트를 위해 먼저 간단한 confirm 사용
       if (Platform.OS === 'web') {
         console.log('🌐 웹 환경에서 confirm 사용');
-        const result = window.confirm(`${subjectName} 과목을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`);
-        if (result) {
-          console.log('🗑️ 삭제 확인됨 - 바로 삭제 진행');
-          // 웹에서는 바로 삭제 실행 (Alert.alert 제거)
-          executeDelete(subjectId, subjectName);
+        const action = window.confirm(`${subjectName} 과목 관리\n\n1. 이름 수정\n2. 삭제\n\n확인을 누르면 이름 수정, 취소를 누르면 삭제됩니다.`);
+        if (action) {
+          console.log('📝 이름 수정 선택됨');
+          renameFileHandler(subjectId, subjectName);
         } else {
-          console.log('❌ 삭제 취소됨');
+          console.log('🗑️ 삭제 선택됨');
+          executeDelete(subjectId, subjectName);
         }
       } else {
         Alert.alert(
@@ -155,6 +215,13 @@ export default function SubjectListScreen({ navigation }: Props) {
               text: '취소', 
               style: 'cancel',
               onPress: () => console.log('❌ 취소 선택됨')
+            },
+            { 
+              text: '과목 이름 수정', 
+              onPress: () => {
+                console.log('📝 이름 수정 선택됨');
+                renameFileHandler(subjectId, subjectName);
+              }
             },
             { 
               text: '과목 삭제하기', 

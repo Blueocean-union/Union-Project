@@ -378,13 +378,13 @@ export default function SubjectFileStorage({
 
       // 파일 타입에 따라 다른 화면으로 이동
       if (file.contentType === 'application/pdf') {
-        console.log('📄 PDF 파일 - PDFDrawingScreen으로 네비게이션');
+        console.log('📄 PDF 파일 - PDFDrawing으로 네비게이션');
         console.log('📄 전달할 파일 정보:', file);
         console.log('📄 전달할 파일 URI:', fileUri);
         console.log('📄 전달할 주제 색상:', subjectColor);
         
         // PDF 필기 화면으로 바로 이동
-        navigation.navigate('PDFDrawingScreen', {
+        navigation.navigate('PDFDrawing', {
           file: file,
           fileUri: fileUri,
           subjectColor: subjectColor

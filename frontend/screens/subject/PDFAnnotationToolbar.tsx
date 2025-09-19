@@ -45,6 +45,13 @@ export default function PDFAnnotationToolbar({
           >
             <Ionicons name="remove-circle-outline" size={20} color={currentTool === 'eraser' ? 'white' : 'white'} />
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.toolButton, currentTool === 'trash' && styles.activeTool]}
+            onPress={() => onClearAnnotations()}
+          >
+            <Ionicons name="trash-outline" size={20} color="white" />
+          </TouchableOpacity>
         </View>
 
       </ScrollView>

@@ -15,6 +15,7 @@ import SubjectListScreen from './subject/SubjectListScreen';
 import SubjectInnerScreen from './subject/SubjectInnerScreen';
 import PDFDrawingScreen from './subject/PDFDrawingScreen';
 import AudioPlayerScreen from './subject/AudioPlayerScreen';
+import FileSummuryScreen from './subject/FileSummuryScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -29,8 +30,9 @@ export type SubjectStackParamList = {
   SubjectList: undefined;
   SubjectDetail: { subject: any };
   SubjectInner: { subjectId: number; subjectName: string; subjectColor: string };
-  PDFDrawingScreen: { file: any; fileUri: string; subjectColor: string };
+  PDFDrawing: { file: any; fileUri: string; subjectColor: string };
   AudioPlayerScreen: { file: any; fileUri: string; subjectColor: string };
+  FileSummury: { file: any; subjectColor: string };
 };
 
 function SubjectStack() {
@@ -39,8 +41,9 @@ function SubjectStack() {
       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
       <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
-      <Stack.Screen name="PDFDrawingScreen" component={PDFDrawingScreen as any} />
+      <Stack.Screen name="PDFDrawing" component={PDFDrawingScreen as any} />
       <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
+      <Stack.Screen name="FileSummury" component={FileSummuryScreen as any} />
     </Stack.Navigator>
   );
 }
