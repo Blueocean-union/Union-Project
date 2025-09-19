@@ -5,9 +5,7 @@ import React from 'react';
 import CalendarAppScreen from './schedule/CalendarAppScreen';
 import MainScreen from './home/MainScreen';
 import LogoutScreen from './auth/LogoutScreen';
-import QuestionCategoryScreen from './question/QuestionCategoryScreen';
-import QuestionDetailScreen from './question/QuestionDetailScreen';
-import QuestionListScreen from './question/QuestionListScreen';
+import QuestionStack from './question/QuestionStack';
 import QuizResultScreen from './quiz/QuizResultScreen';
 import QuizRoomScreen from './quiz/QuizRoomScreen';
 import QuizSelectScreen from './quiz/QuizSelectScreen';
@@ -47,15 +45,7 @@ function SubjectStack() {
   );
 }
 
-function QuestionStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="QuestionCategory" component={QuestionCategoryScreen} />
-      <Stack.Screen name="QuestionList" component={QuestionListScreen} />
-      <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen as any} />
-    </Stack.Navigator>
-  );
-}
+
 
 function QuizStack() {
   return (
