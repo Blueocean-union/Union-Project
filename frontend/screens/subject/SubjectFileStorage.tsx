@@ -358,7 +358,16 @@ export default function SubjectFileStorage({
                 if (originalResponse.ok) {
                   const arrayBuffer = await originalResponse.arrayBuffer();
                   const uint8Array = new Uint8Array(arrayBuffer);
-                  const base64 = btoa(String.fromCharCode(...uint8Array));
+                  
+                  // 큰 파일을 위한 청크 단위 Base64 변환
+                  const chunkSize = 8192; // 8KB 청크
+                  let base64 = '';
+                  
+                  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                    const chunk = uint8Array.slice(i, i + chunkSize);
+                    base64 += btoa(String.fromCharCode(...chunk));
+                  }
+                  
                   await FileSystem.writeAsStringAsync(localPath, base64, {
                     encoding: FileSystem.EncodingType.Base64,
                   });
@@ -392,8 +401,14 @@ export default function SubjectFileStorage({
             const arrayBuffer = await response.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
             
-            // ArrayBuffer를 base64로 변환
-            const base64 = btoa(String.fromCharCode(...uint8Array));
+            // 큰 파일을 위한 청크 단위 Base64 변환
+            const chunkSize = 8192; // 8KB 청크
+            let base64 = '';
+            
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+              const chunk = uint8Array.slice(i, i + chunkSize);
+              base64 += btoa(String.fromCharCode(...chunk));
+            }
             
             // base64를 파일로 저장
             await FileSystem.writeAsStringAsync(localPath, base64, {
@@ -641,7 +656,16 @@ export default function SubjectFileStorage({
               if (originalResponse.ok) {
                 const arrayBuffer = await originalResponse.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                const base64 = btoa(String.fromCharCode(...uint8Array));
+                
+                // 큰 파일을 위한 청크 단위 Base64 변환
+                const chunkSize = 8192; // 8KB 청크
+                let base64 = '';
+                
+                for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                  const chunk = uint8Array.slice(i, i + chunkSize);
+                  base64 += btoa(String.fromCharCode(...chunk));
+                }
+                
                 await FileSystem.writeAsStringAsync(localPath, base64, {
                   encoding: FileSystem.EncodingType.Base64,
                 });
@@ -676,8 +700,14 @@ export default function SubjectFileStorage({
           const arrayBuffer = await response.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
           
-          // ArrayBuffer를 base64로 변환
-          const base64 = btoa(String.fromCharCode(...uint8Array));
+          // 큰 파일을 위한 청크 단위 Base64 변환
+          const chunkSize = 8192; // 8KB 청크
+          let base64 = '';
+          
+          for (let i = 0; i < uint8Array.length; i += chunkSize) {
+            const chunk = uint8Array.slice(i, i + chunkSize);
+            base64 += btoa(String.fromCharCode(...chunk));
+          }
           
           // base64를 파일로 저장
           await FileSystem.writeAsStringAsync(localPath, base64, {
