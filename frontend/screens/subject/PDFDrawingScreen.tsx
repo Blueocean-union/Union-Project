@@ -1,52 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
+  Dimensions,
+  PanResponder,
+  Alert,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import PdfViewerScreen from './PdfViewerScreen';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../../types/navigation';
+import Pdf from 'react-native-pdf';
+import Svg, { Path, Circle } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../../libs/api/axios';
+import TemporaryAudio from '../screens_spare/temporaryAudio';
+
+interface FileItem {
+  id: number;
+  folderId: number;
+  originalFileName: string;
+  contentType: string;
+  size: number;
+  updatedAt: string;
+  deleted: boolean;
+}
+
+interface DrawingPath {
+  id: string;
+  path: string;
+  color: string;
+  width: number;
+  tool: string;
+}
+
+interface DrawingPoint {
+  x: number;
+  y: number;
+}
 
 interface PDFDrawingScreenProps {
   route: {
     params: {
-      file: {
-        id: number;
-        folderId: number;
-        originalFileName: string;
-        contentType: string;
-        size: number;
-        updatedAt: string;
-        deleted: boolean;
-      };
+      file: FileItem;
       fileUri: string;
       subjectColor: string;
     };
   };
 }
 
+type NavigationProp = NativeStackNavigationProp<SubjectStackParamList, 'PDFDrawing'>;
+
 export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const { file, fileUri, subjectColor } = route.params;
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   
-  // 툴바 상태
+  // 디버깅 로그 추가 (무한 렌더링 방지를 위해 제거)
+  // console.log('🔍 PDFDrawingScreen 렌더링 시작');
+  // console.log('📁 파일 정보:', file);
+  // console.log('🔗 파일 URI:', fileUri);
+  // console.log('🎨 주제 색상:', subjectColor);
+  
+  // PDF 관련 상태
+  const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1);
+  const [loading, setLoading] = useState(true); // 초기 로딩 상태
+  const [error, setError] = useState<string | null>(null);
+  const [pdfLoaded, setPdfLoaded] = useState(false); // PDF 로드 상태 추가
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 }); // PDF 실제 렌더 크기
+  
+  // 필기 관련 상태
   const [currentTool, setCurrentTool] = useState('pen');
   const [currentColor, setCurrentColor] = useState('#ff0000');
+  const [currentWidth, setCurrentWidth] = useState(2);
+  const [drawingPaths, setDrawingPaths] = useState<DrawingPath[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
+  
+  // 음성녹음 상태
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  
+  // Refs
+  const pdfRef = useRef<any>(null);
+  const svgRef = useRef<any>(null);
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-  // 액션 버튼 핸들러(향후 구현 예정정)
+  // 필기 데이터 로드
+  const loadAnnotations = useCallback(async () => {
+    try {
+      // annotation API는 별도의 토큰 처리
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log('📝 Annotation API 토큰 상태:', token ? '존재함' : '없음');
+      
+      const response = await fetch(`http://52.78.209.115:8080/api/annotations/${file.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Annotation API 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📝 필기 데이터 응답:', data);
+      
+      if (Array.isArray(data)) {
+        setDrawingPaths(data);
+      } else if (data && Array.isArray(data.annotations)) {
+        setDrawingPaths(data.annotations);
+      } else {
+        setDrawingPaths([]);
+      }
+    } catch (error) {
+      console.log('필기 데이터 없음 또는 로드 실패:', error);
+      setDrawingPaths([]);
+    }
+  }, [file.id]);
+
+  // 필기 데이터 저장
+  const saveAnnotations = useCallback(async (newPaths: DrawingPath[]) => {
+    try {
+      // annotation API는 별도의 토큰 처리
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log('📝 Annotation 저장 API 토큰 상태:', token ? '존재함' : '없음');
+      
+      const response = await fetch(`http://52.78.209.115:8080/api/annotations/${file.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          annotations: newPaths
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Annotation 저장 API 실패: ${response.status}`);
+      }
+
+      setDrawingPaths(newPaths);
+      console.log('✅ 필기 데이터 저장 성공');
+    } catch (error) {
+      console.error('필기 데이터 저장 실패:', error);
+      Alert.alert('오류', '필기를 저장할 수 없습니다.');
+    }
+  }, [file.id]);
+
+  // 액션 버튼 핸들러
   const handleVoiceRecord = () => {
     console.log('음성녹음 버튼 눌림');
+    setShowAudioRecorder(true);
   };
 
   const handleSummarize = () => {
     console.log('요약하기 버튼 눌림');
-  };
-
-  const handleAddAction = () => {
-    console.log('추가 버튼 눌림');
+    navigation.navigate('FileSummury', {
+      file: file,
+      subjectColor: subjectColor,
+    });
   };
 
   // 툴바 핸들러
@@ -59,8 +179,151 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   };
 
   const handleClearAnnotations = () => {
-    console.log('필기 지우기');
+    Alert.alert(
+      '필기 지우기',
+      '모든 필기를 지우시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '지우기',
+          style: 'destructive',
+          onPress: () => {
+            setDrawingPaths([]);
+            saveAnnotations([]);
+          },
+        },
+      ]
+    );
   };
+
+  // 경로가 지우개 범위 내에 있는지 확인
+  const isPathInEraserRange = useCallback((path: DrawingPath, x: number, y: number, radius: number) => {
+    const pathData = path.path;
+    const coordinates = pathData.match(/(\d+\.?\d*),(\d+\.?\d*)/g);
+    
+    if (!coordinates) return false;
+    
+    for (const coord of coordinates) {
+      const [px, py] = coord.split(',').map(Number);
+      const distance = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
+      if (distance <= radius) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  // 지우개 기능
+  const eraseAtPoint = useCallback((x: number, y: number) => {
+    const eraserRadius = 20;
+    
+    const updatedPaths = drawingPaths.filter((path) => {
+      return !isPathInEraserRange(path, x, y, eraserRadius);
+    });
+    
+    if (updatedPaths.length !== drawingPaths.length) {
+      setDrawingPaths(updatedPaths);
+      saveAnnotations(updatedPaths);
+    }
+  }, [drawingPaths, isPathInEraserRange, saveAnnotations]);
+
+  // 그리기 시작
+  const startDrawing = useCallback((x: number, y: number) => {
+    if (currentTool === 'eraser') {
+      eraseAtPoint(x, y);
+      return;
+    }
+    
+    setIsDrawing(true);
+    setCurrentPoints([{ x, y }]);
+    setCurrentPath(`M${x},${y}`);
+    
+    // 하이라이터 도구일 때 선 두께 조정
+    if (currentTool === 'highlighter') {
+      setCurrentWidth(8);
+    } else if (currentTool === 'pen') {
+      setCurrentWidth(2);
+    }
+  }, [currentTool, eraseAtPoint]);
+
+  // 그리기 중
+  const continueDrawing = useCallback((x: number, y: number) => {
+    if (currentTool === 'eraser') {
+      eraseAtPoint(x, y);
+      return;
+    }
+    
+    if (!isDrawing) return;
+    
+    const newPoints = [...currentPoints, { x, y }];
+    setCurrentPoints(newPoints);
+    
+    if (currentTool === 'pen' || currentTool === 'highlighter') {
+      // 부드러운 곡선을 위해 이전 점과 현재 점 사이에 제어점 추가
+      if (currentPoints.length > 0) {
+        const prevPoint = currentPoints[currentPoints.length - 1];
+        const controlX = (prevPoint.x + x) / 2;
+        const controlY = (prevPoint.y + y) / 2;
+        setCurrentPath(prev => `${prev} Q${controlX},${controlY} ${x},${y}`);
+      } else {
+        setCurrentPath(prev => `${prev} L${x},${y}`);
+      }
+    }
+  }, [currentTool, isDrawing, currentPoints, eraseAtPoint]);
+
+  // 그리기 종료
+  const endDrawing = useCallback(() => {
+    if (!isDrawing) return;
+    
+    const newPath: DrawingPath = {
+      id: Date.now().toString(),
+      path: currentPath,
+      color: currentColor,
+      width: currentWidth,
+      tool: currentTool,
+    };
+    
+    const updatedPaths = [...drawingPaths, newPath];
+    setDrawingPaths(updatedPaths);
+    saveAnnotations(updatedPaths);
+    
+    setIsDrawing(false);
+    setCurrentPath('');
+    setCurrentPoints([]);
+  }, [isDrawing, currentPath, currentColor, currentWidth, currentTool, drawingPaths, saveAnnotations]);
+
+  // PanResponder 설정
+  const panResponder = useCallback(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      startDrawing(locationX, locationY);
+    },
+    onPanResponderMove: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      continueDrawing(locationX, locationY);
+    },
+    onPanResponderRelease: () => {
+      endDrawing();
+    },
+  }), [startDrawing, continueDrawing, endDrawing]);
+
+  // useEffect로 필기 데이터 로드
+  useEffect(() => {
+    console.log('🔄 useEffect 실행 - loadAnnotations 호출');
+    loadAnnotations();
+  }, [loadAnnotations]); // loadAnnotations 함수가 변경될 때만 실행
+
+  // PDF 컴포넌트 렌더링 조건 디버깅 (개발용 - 필요시 주석 해제)
+  // useEffect(() => {
+  //   console.log('🔍 PDF 렌더링 조건 체크:');
+  //   console.log('  - loading:', loading);
+  //   console.log('  - error:', error);
+  //   console.log('  - fileUri:', fileUri);
+  //   console.log('  - pdfLoaded:', pdfLoaded);
+  //   console.log('  - 렌더링 가능:', !loading && !error && fileUri);
+  // }, [loading, error, fileUri, pdfLoaded]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -76,11 +339,17 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           {file.originalFileName}
         </Text>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerActionButton}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={handleVoiceRecord}
+          >
             <Ionicons name="mic" size={20} color="white" />
             <Text style={styles.headerActionText}>음성녹음</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerActionButton}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={handleSummarize}
+          >
             <Ionicons name="create" size={20} color="white" />
             <Text style={styles.headerActionText}>요약하기</Text>
           </TouchableOpacity>
@@ -90,7 +359,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       {/* 색상 팔레트 + 툴바 (한 줄) */}
       <View style={[styles.toolbarContainer, { backgroundColor: subjectColor }]}>
         <View style={styles.colorRow}>
-          {['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00'].map((color) => (
+          {['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
             <TouchableOpacity
               key={color}
               style={[styles.colorButton, { backgroundColor: color }, currentColor === color && styles.selectedColor]}
@@ -108,24 +377,160 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </TouchableOpacity>
           
           <TouchableOpacity
+            style={[styles.toolButton, currentTool === 'highlighter' && styles.activeTool]}
+            onPress={() => handleToolChange('highlighter')}
+          >
+            <Ionicons name="brush" size={20} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
             style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
             onPress={() => handleToolChange('eraser')}
           >
             <Ionicons name="remove-circle-outline" size={20} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.toolButton]}
+            onPress={handleClearAnnotations}
+          >
+            <Ionicons name="trash-outline" size={20} color="white" />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* PDF 뷰어 영역 */}
       <View style={styles.pdfViewerContainer}>
-        <PdfViewerScreen
-          file={file}
-          fileUri={fileUri}
-          subjectColor={subjectColor}
-          currentTool={currentTool}
-          currentColor={currentColor}
-        />
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>PDF 로딩 중...</Text>
+          </View>
+        )}
+        
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={() => {
+                setError(null);
+                setLoading(true);
+              }}
+            >
+              <Text style={styles.retryButtonText}>다시 시도</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {!loading && !error && fileUri && (
+          <View 
+            style={styles.pdfContainer}
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setCanvasSize({ width, height });
+              console.log('📐 PDF 컨테이너 크기:', width, 'x', height);
+            }}
+          >
+            <Pdf
+              ref={pdfRef}
+              source={{ 
+                uri: fileUri,
+                cache: false,
+                cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
+              }}
+              style={StyleSheet.absoluteFill}
+              onLoadComplete={(numberOfPages, width, height) => {
+                console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
+                console.log('📄 PDF 크기:', width, 'x', height);
+                setTotalPages(numberOfPages);
+                setLoading(false);
+                setError(null);
+                setPdfLoaded(true);
+              }}
+              onError={(error: any) => {
+                console.error('❌ PDF 로드 오류:', error);
+                setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
+                setLoading(false);
+                setPdfLoaded(false);
+              }}
+              onLoadProgress={(percent) => {
+                console.log('📊 PDF 로딩 진행률:', percent + '%');
+              }}
+              enablePaging={false}
+              enableRTL={false}
+              enableAntialiasing={true}
+              enableAnnotationRendering={true}
+              enableDoubleTapZoom={true}
+              password=""
+              spacing={0}
+              scale={scale}
+              minScale={0.5}
+              maxScale={3}
+              horizontal={false}
+              onScaleChanged={(scale) => {
+                console.log('📏 스케일 변경:', scale);
+                setScale(scale);
+              }}
+            />
+            
+            {/* SVG 필기 오버레이 - PDF 위에 절대 위치 */}
+            {pdfLoaded && canvasSize.width > 0 && (
+              <View style={StyleSheet.absoluteFill} {...panResponder().panHandlers}>
+                <Svg
+                  ref={svgRef}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                >
+                  {/* 저장된 필기 경로들 */}
+                  {drawingPaths.map((path) => (
+                    <Path
+                      key={path.id}
+                      d={path.path}
+                      stroke={path.color}
+                      strokeWidth={path.width}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                    />
+                  ))}
+                  
+                  {/* 현재 그리는 경로 */}
+                  {isDrawing && currentPath && (
+                    <Path
+                      d={currentPath}
+                      stroke={currentColor}
+                      strokeWidth={currentWidth}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={currentTool === 'highlighter' ? 0.5 : 1}
+                    />
+                  )}
+                  
+                  {/* 현재 그리는 점들 */}
+                  {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
+                    <Circle
+                      key={index}
+                      cx={point.x}
+                      cy={point.y}
+                      r={currentWidth / 2}
+                      fill={currentColor}
+                    />
+                  ))}
+                </Svg>
+              </View>
+            )}
+          </View>
+        )}
       </View>
+
+      {/* 음성녹음 모달 */}
+      <TemporaryAudio
+        visible={showAudioRecorder}
+        onClose={() => setShowAudioRecorder(false)}
+        subjectColor={subjectColor}
+      />
 
     </SafeAreaView>
   );
@@ -208,5 +613,45 @@ const styles = StyleSheet.create({
   },
   pdfViewerContainer: {
     flex: 1,
+    position: 'relative',
+  },
+  pdfContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff0000',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

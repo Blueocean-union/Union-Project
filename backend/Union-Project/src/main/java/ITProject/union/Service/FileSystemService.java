@@ -212,12 +212,10 @@ public class FileSystemService {
         Long ownerUserId = file.getOwnerUserId();
         ensureOwnership(ownerUserId, requesterUserId);
 
-        String cd = "attachment; filename=\"" + contentDispositionFilename(file.getOriginalFileName()) + "\"";
 
         GetObjectRequest getReq = GetObjectRequest.builder()
                 .bucket(file.getBucket())
                 .key(file.getObjectKey())
-                .responseContentDisposition(cd)
                 .build();
 
         Duration expire = Duration.ofMinutes(presignExpireMinutes);
