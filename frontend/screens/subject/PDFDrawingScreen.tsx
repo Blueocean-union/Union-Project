@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SubjectStackParamList } from '../../types/navigation';
 import Pdf from 'react-native-pdf';
 import Svg, { Path, Circle } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
+import TemporaryAudio from '../screens_spare/temporaryAudio';
 
 interface FileItem {
   id: number;
@@ -50,9 +53,11 @@ interface PDFDrawingScreenProps {
   };
 }
 
+type NavigationProp = NativeStackNavigationProp<SubjectStackParamList, 'PDFDrawing'>;
+
 export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const { file, fileUri, subjectColor } = route.params;
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   
   // 디버깅 로그 추가 (무한 렌더링 방지를 위해 제거)
   // console.log('🔍 PDFDrawingScreen 렌더링 시작');
@@ -77,13 +82,16 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<DrawingPoint[]>([]);
   
+  // 음성녹음 상태
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  
   // Refs
   const pdfRef = useRef<any>(null);
   const svgRef = useRef<any>(null);
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
   // 필기 데이터 로드
-  const loadAnnotations = async () => {
+  const loadAnnotations = useCallback(async () => {
     try {
       // annotation API는 별도의 토큰 처리
       const token = await AsyncStorage.getItem('accessToken');
@@ -115,10 +123,10 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       console.log('필기 데이터 없음 또는 로드 실패:', error);
       setDrawingPaths([]);
     }
-  };
+  }, [file.id]);
 
   // 필기 데이터 저장
-  const saveAnnotations = async (newPaths: DrawingPath[]) => {
+  const saveAnnotations = useCallback(async (newPaths: DrawingPath[]) => {
     try {
       // annotation API는 별도의 토큰 처리
       const token = await AsyncStorage.getItem('accessToken');
@@ -145,15 +153,20 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       console.error('필기 데이터 저장 실패:', error);
       Alert.alert('오류', '필기를 저장할 수 없습니다.');
     }
-  };
+  }, [file.id]);
 
   // 액션 버튼 핸들러
   const handleVoiceRecord = () => {
     console.log('음성녹음 버튼 눌림');
+    setShowAudioRecorder(true);
   };
 
   const handleSummarize = () => {
     console.log('요약하기 버튼 눌림');
+    navigation.navigate('FileSummury', {
+      file: file,
+      subjectColor: subjectColor,
+    });
   };
 
   // 툴바 핸들러
@@ -183,8 +196,39 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     );
   };
 
+  // 경로가 지우개 범위 내에 있는지 확인
+  const isPathInEraserRange = useCallback((path: DrawingPath, x: number, y: number, radius: number) => {
+    const pathData = path.path;
+    const coordinates = pathData.match(/(\d+\.?\d*),(\d+\.?\d*)/g);
+    
+    if (!coordinates) return false;
+    
+    for (const coord of coordinates) {
+      const [px, py] = coord.split(',').map(Number);
+      const distance = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
+      if (distance <= radius) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  // 지우개 기능
+  const eraseAtPoint = useCallback((x: number, y: number) => {
+    const eraserRadius = 20;
+    
+    const updatedPaths = drawingPaths.filter((path) => {
+      return !isPathInEraserRange(path, x, y, eraserRadius);
+    });
+    
+    if (updatedPaths.length !== drawingPaths.length) {
+      setDrawingPaths(updatedPaths);
+      saveAnnotations(updatedPaths);
+    }
+  }, [drawingPaths, isPathInEraserRange, saveAnnotations]);
+
   // 그리기 시작
-  const startDrawing = (x: number, y: number) => {
+  const startDrawing = useCallback((x: number, y: number) => {
     if (currentTool === 'eraser') {
       eraseAtPoint(x, y);
       return;
@@ -193,10 +237,17 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     setIsDrawing(true);
     setCurrentPoints([{ x, y }]);
     setCurrentPath(`M${x},${y}`);
-  };
+    
+    // 하이라이터 도구일 때 선 두께 조정
+    if (currentTool === 'highlighter') {
+      setCurrentWidth(8);
+    } else if (currentTool === 'pen') {
+      setCurrentWidth(2);
+    }
+  }, [currentTool, eraseAtPoint]);
 
   // 그리기 중
-  const continueDrawing = (x: number, y: number) => {
+  const continueDrawing = useCallback((x: number, y: number) => {
     if (currentTool === 'eraser') {
       eraseAtPoint(x, y);
       return;
@@ -208,12 +259,20 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     setCurrentPoints(newPoints);
     
     if (currentTool === 'pen' || currentTool === 'highlighter') {
-      setCurrentPath(prev => `${prev} L${x},${y}`);
+      // 부드러운 곡선을 위해 이전 점과 현재 점 사이에 제어점 추가
+      if (currentPoints.length > 0) {
+        const prevPoint = currentPoints[currentPoints.length - 1];
+        const controlX = (prevPoint.x + x) / 2;
+        const controlY = (prevPoint.y + y) / 2;
+        setCurrentPath(prev => `${prev} Q${controlX},${controlY} ${x},${y}`);
+      } else {
+        setCurrentPath(prev => `${prev} L${x},${y}`);
+      }
     }
-  };
+  }, [currentTool, isDrawing, currentPoints, eraseAtPoint]);
 
   // 그리기 종료
-  const endDrawing = () => {
+  const endDrawing = useCallback(() => {
     if (!isDrawing) return;
     
     const newPath: DrawingPath = {
@@ -231,41 +290,10 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     setIsDrawing(false);
     setCurrentPath('');
     setCurrentPoints([]);
-  };
-
-  // 지우개 기능
-  const eraseAtPoint = (x: number, y: number) => {
-    const eraserRadius = 20;
-    
-    const updatedPaths = drawingPaths.filter((path) => {
-      return !isPathInEraserRange(path, x, y, eraserRadius);
-    });
-    
-    if (updatedPaths.length !== drawingPaths.length) {
-      setDrawingPaths(updatedPaths);
-      saveAnnotations(updatedPaths);
-    }
-  };
-
-  // 경로가 지우개 범위 내에 있는지 확인
-  const isPathInEraserRange = (path: DrawingPath, x: number, y: number, radius: number) => {
-    const pathData = path.path;
-    const coordinates = pathData.match(/(\d+\.?\d*),(\d+\.?\d*)/g);
-    
-    if (!coordinates) return false;
-    
-    for (const coord of coordinates) {
-      const [px, py] = coord.split(',').map(Number);
-      const distance = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
-      if (distance <= radius) {
-        return true;
-      }
-    }
-    return false;
-  };
+  }, [isDrawing, currentPath, currentColor, currentWidth, currentTool, drawingPaths, saveAnnotations]);
 
   // PanResponder 설정
-  const panResponder = PanResponder.create({
+  const panResponder = useCallback(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (evt) => {
@@ -279,23 +307,23 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     onPanResponderRelease: () => {
       endDrawing();
     },
-  });
+  }), [startDrawing, continueDrawing, endDrawing]);
 
   // useEffect로 필기 데이터 로드
   useEffect(() => {
     console.log('🔄 useEffect 실행 - loadAnnotations 호출');
     loadAnnotations();
-  }, [file.id]); // file.id가 변경될 때만 실행
+  }, [loadAnnotations]); // loadAnnotations 함수가 변경될 때만 실행
 
-  // PDF 컴포넌트 렌더링 조건 디버깅
-  useEffect(() => {
-    console.log('🔍 PDF 렌더링 조건 체크:');
-    console.log('  - loading:', loading);
-    console.log('  - error:', error);
-    console.log('  - fileUri:', fileUri);
-    console.log('  - pdfLoaded:', pdfLoaded);
-    console.log('  - 렌더링 가능:', !loading && !error && fileUri);
-  }, [loading, error, fileUri, pdfLoaded]);
+  // PDF 컴포넌트 렌더링 조건 디버깅 (개발용 - 필요시 주석 해제)
+  // useEffect(() => {
+  //   console.log('🔍 PDF 렌더링 조건 체크:');
+  //   console.log('  - loading:', loading);
+  //   console.log('  - error:', error);
+  //   console.log('  - fileUri:', fileUri);
+  //   console.log('  - pdfLoaded:', pdfLoaded);
+  //   console.log('  - 렌더링 가능:', !loading && !error && fileUri);
+  // }, [loading, error, fileUri, pdfLoaded]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -331,7 +359,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       {/* 색상 팔레트 + 툴바 (한 줄) */}
       <View style={[styles.toolbarContainer, { backgroundColor: subjectColor }]}>
         <View style={styles.colorRow}>
-          {['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00'].map((color) => (
+          {['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
             <TouchableOpacity
               key={color}
               style={[styles.colorButton, { backgroundColor: color }, currentColor === color && styles.selectedColor]}
@@ -346,6 +374,13 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             onPress={() => handleToolChange('pen')}
           >
             <Ionicons name="create" size={20} color="white" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.toolButton, currentTool === 'highlighter' && styles.activeTool]}
+            onPress={() => handleToolChange('highlighter')}
+          >
+            <Ionicons name="brush" size={20} color="white" />
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -440,7 +475,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             
             {/* SVG 필기 오버레이 - PDF 위에 절대 위치 */}
             {pdfLoaded && canvasSize.width > 0 && (
-              <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
+              <View style={StyleSheet.absoluteFill} {...panResponder().panHandlers}>
                 <Svg
                   ref={svgRef}
                   width={canvasSize.width}
@@ -489,6 +524,13 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </View>
         )}
       </View>
+
+      {/* 음성녹음 모달 */}
+      <TemporaryAudio
+        visible={showAudioRecorder}
+        onClose={() => setShowAudioRecorder(false)}
+        subjectColor={subjectColor}
+      />
 
     </SafeAreaView>
   );
