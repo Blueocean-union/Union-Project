@@ -1,129 +1,64 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, TextInput, Modal, Button } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import {
-  listQuestionFolders,
-  createQuestionFolder,
-  updateQuestionFolder,
-  deleteQuestionFolder,
-  type QuestionFolder,
-} from '../../libs/api/questionFolders';
+// libs/api/axios.ts
+import axios, {
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+  AxiosRequestHeaders,
+} from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function QuestionMainScreen() {
-  const navigation = useNavigation<any>();
-  const [folders, setFolders] = useState<QuestionFolder[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [folderName, setFolderName] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
+const api = axios.create({
+  baseURL: 'http://52.78.209.115:8080',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 12000,
+});
 
-  const loadFolders = async () => {
-    setLoading(true);
-    try {
-      const data = await listQuestionFolders();
-      setFolders(data);
-    } catch {
-      Alert.alert('오류', '폴더 목록을 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
+// 요청 인터셉터
+api.interceptors.request.use(
+  // ✅ InternalAxiosRequestConfig 로 타입 고정
+  async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
+    const token = await AsyncStorage.getItem('accessToken');
+    console.log('🔧 Axios 인터셉터 - 토큰:', token ? '존재함' : '없음');
 
-  useEffect(() => {
-    loadFolders();
-  }, []);
+    if (token) {
+      const headers: AxiosRequestHeaders = (config.headers ??
+        {}) as AxiosRequestHeaders;
 
-  const openCreateModal = () => {
-    setEditingId(null);
-    setFolderName('');
-    setModalVisible(true);
-  };
-
-  const openEditModal = (folder: QuestionFolder) => {
-    setEditingId(folder.id);
-    setFolderName(folder.name);
-    setModalVisible(true);
-  };
-
-  const handleSaveFolder = async () => {
-    if (!folderName.trim()) return;
-    try {
-      if (editingId) {
-        await updateQuestionFolder(editingId, { name: folderName });
+      if (headers['Content-Type'] !== 'multipart/form-data') {
+        headers['Authorization'] = `Bearer ${token}`;
       } else {
-        await createQuestionFolder({ name: folderName });
+        headers['Authorization'] = `Bearer ${token}`;
+        delete headers['Content-Type']; // multipart 는 브라우저가 자동 처리
       }
-      setModalVisible(false);
-      loadFolders();
-    } catch {
-      Alert.alert('오류', '폴더 저장에 실패했습니다.');
+
+      config.headers = headers;
+
+      console.log(
+        '🔧 Authorization 헤더 설정:',
+        `Bearer ${token.substring(0, 20)}...`
+      );
     }
-  };
 
-  const handleDeleteFolder = async (id: number) => {
-    Alert.alert('삭제', '폴더를 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteQuestionFolder(id);
-            loadFolders();
-          } catch {
-            Alert.alert('오류', '폴더 삭제 실패');
-          }
-        },
-      },
-    ]);
-  };
+    console.log('🔧 요청 URL:', `${config.baseURL ?? ''}${config.url ?? ''}`);
+    console.log('🔧 요청 헤더:', config.headers);
 
-  const renderItem = ({ item }: { item: QuestionFolder }) => (
-    <TouchableOpacity
-      style={{ backgroundColor: '#f9f9f9', padding: 16, borderRadius: 12, marginVertical: 8 }}
-      onPress={() => navigation.navigate('QuestionCategory', { folderId: item.id, folderName: item.name })}
-    >
-      <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
-      <View style={{ flexDirection: 'row', marginTop: 8 }}>
-        <TouchableOpacity onPress={() => openEditModal(item)} style={{ marginRight: 16 }}>
-          <Ionicons name="pencil" size={20} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDeleteFolder(item.id)}>
-          <Ionicons name="trash" size={20} color="red" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+    return config; // ✅ Promise<InternalAxiosRequestConfig> 반환
+  },
+  (error) => Promise.reject(error)
+);
 
-  return (
-    <View style={{ flex: 1, padding: 24, backgroundColor: '#fff' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Text style={{ fontSize: 28, fontWeight: 'bold' }}>질문방</Text>
-        <TouchableOpacity onPress={openCreateModal}>
-          <Ionicons name="add-circle" size={32} color="black" />
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={folders}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        ListEmptyComponent={<Text>폴더가 없습니다. 새로 만들어보세요.</Text>}
-      />
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.3)' }}>
-          <View style={{ backgroundColor: 'white', padding: 16, borderRadius: 8 }}>
-            <TextInput
-              value={folderName}
-              onChangeText={setFolderName}
-              placeholder="폴더 이름"
-              style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 4, padding: 8, marginBottom: 12 }}
-            />
-            <Button title="저장" onPress={handleSaveFolder} />
-            <Button title="취소" onPress={() => setModalVisible(false)} color="gray" />
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-}
+// 응답 인터셉터
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API 응답 성공:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.log('❌ API 응답 에러:', error.response?.status, error.config?.url);
+    console.log('❌ 에러 응답 데이터:', error.response?.data);
+    return Promise.reject(error);
+  }
+);
+
+export default api;
