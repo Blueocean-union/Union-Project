@@ -68,7 +68,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // PDF 관련 상태
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1);
-  const [loading, setLoading] = useState(true); // 초기 로딩 상태
+  const [loading, setLoading] = useState(false); // 초기 로딩 상태를 false로 변경
   const [error, setError] = useState<string | null>(null);
   const [pdfLoaded, setPdfLoaded] = useState(false); // PDF 로드 상태 추가
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 }); // PDF 실제 렌더 크기
@@ -422,7 +422,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </View>
         )}
         
-        {!loading && !error && fileUri && (
+        {fileUri && (
           <View 
             style={styles.pdfContainer}
             onLayout={(e) => {
@@ -431,6 +431,12 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
               console.log('📐 PDF 컨테이너 크기:', width, 'x', height);
             }}
           >
+            {loading && (
+              <View style={styles.loadingOverlay}>
+                <Text style={styles.loadingText}>PDF 로딩 중...</Text>
+              </View>
+            )}
+            
             <Pdf
               ref={pdfRef}
               source={{ 
@@ -438,7 +444,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
                 cache: false,
                 cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
               }}
-              style={StyleSheet.absoluteFill}
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'white' }]}
               onLoadComplete={(numberOfPages, width, height) => {
                 console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
                 console.log('📄 PDF 크기:', width, 'x', height);
@@ -449,12 +455,20 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
               }}
               onError={(error: any) => {
                 console.error('❌ PDF 로드 오류:', error);
+                console.error('❌ 오류 상세:', error);
+                console.error('❌ 파일 URI:', fileUri);
                 setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
                 setLoading(false);
                 setPdfLoaded(false);
               }}
               onLoadProgress={(percent) => {
                 console.log('📊 PDF 로딩 진행률:', percent + '%');
+                if (percent < 100) {
+                  setLoading(true);
+                }
+              }}
+              onPageChanged={(page, numberOfPages) => {
+                console.log('📄 페이지 변경:', page, '/', numberOfPages);
               }}
               enablePaging={false}
               enableRTL={false}
@@ -624,6 +638,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.9)',
+    zIndex: 10,
   },
   loadingText: {
     fontSize: 16,
