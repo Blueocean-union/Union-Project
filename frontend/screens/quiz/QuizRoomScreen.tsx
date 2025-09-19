@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-nati
 import { Quiz, Question, Choice } from "../../types/quiz";
 
 type Props = {
-  quiz: Quiz;
+  quiz?: any;
 };
 
 const QuizRoomScreen: React.FC<Props> = ({ quiz }) => {

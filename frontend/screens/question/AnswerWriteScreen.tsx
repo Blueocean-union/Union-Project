@@ -1,59 +1,82 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { View, TextInput, Button, StyleSheet, Alert, Text, TouchableOpacity } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { QuestionStackParamList } from './QuestionStack';
 import { createAnswer, updateAnswer } from '../../libs/api/answers';
+import { Ionicons } from '@expo/vector-icons';
 
-interface RouteParams {
-  postId: number;
-  answerId?: number;
-  initialContent?: string;
-}
+type Props = NativeStackScreenProps<QuestionStackParamList, 'AnswerWrite'>;
 
-export default function AnswerWriteScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute();
-  const { postId, answerId, initialContent } = (route.params as RouteParams);
-
-  const [content, setContent] = useState(initialContent ?? '');
+export default function AnswerWriteScreen({ route, navigation }: Props) {
+  const { postId, answer } = route.params;
+  const [content, setContent] = useState<string>(answer?.content ?? '');
 
   const handleSubmit = async () => {
     if (!content.trim()) {
-      Alert.alert('오류', '내용을 입력해주세요.');
+      Alert.alert('알림', '내용을 입력해주세요.');
       return;
     }
+
     try {
-      if (answerId) {
-        await updateAnswer(answerId, { content });
+      if (answer?.id) {
+        await updateAnswer(answer.id, content); // 수정된 부분: { content } 대신 content 직접 전달
         Alert.alert('알림', '답변이 수정되었습니다.');
       } else {
-        await createAnswer(postId, { content });
+        await createAnswer(postId, content); // 수정된 부분: { content } 대신 content 직접 전달
         Alert.alert('알림', '답변이 등록되었습니다.');
       }
       navigation.goBack();
-    } catch {
-      Alert.alert('오류', answerId ? '답변 수정 실패' : '답변 등록 실패');
+    } catch (e) {
+      console.error(e);
+      Alert.alert('오류', '답변 처리 실패');
     }
   };
 
   return (
-    <View style={{ flex: 1, padding: 24, backgroundColor: '#fff' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+    <View style={styles.container}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={28} color="black" />
+          <Ionicons name="close" size={24} color="#999" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', marginLeft: 16 }}>
-          {answerId ? '답변 수정' : '답변 작성'}
+        <Text style={styles.headerTitle}>
+          {answer ? '답변 수정' : '답변 작성'}
         </Text>
+        <Button title="저장" onPress={handleSubmit} />
       </View>
       <TextInput
+        style={styles.input}
         value={content}
         onChangeText={setContent}
+        placeholder="내용을 입력하세요"
         multiline
-        placeholder="답변을 입력하세요"
-        style={{ borderWidth: 1, borderRadius: 4, padding: 8, height: 120, textAlignVertical: 'top' }}
+        textAlignVertical="top"
       />
-      <Button title={answerId ? '수정 완료' : '등록'} onPress={handleSubmit} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 150,
+    fontSize: 16,
+  },
+});

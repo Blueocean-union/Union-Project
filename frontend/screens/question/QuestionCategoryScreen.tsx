@@ -1,86 +1,84 @@
-// frontend/screens/question/QuestionCategoryScreen.tsx
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { listPosts, type Post } from '../../libs/api/posts';
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import QuestionCategoryScreen from './QuestionCategoryScreen';
+import QuestionListScreen from './QuestionListScreen';
+import QuestionDetailScreen from './QuestionDetailScreen';
+import QuestionCreateScreen from './QuestionCreateScreen';
+import QuestionEditScreen from './QuestionEditScreen';
+import AnswerWriteScreen from './AnswerWriteScreen';
 
-interface RouteParams {
-  folderId?: number;   // ✅ 옵셔널로 변경
-  folderName?: string; // ✅ 옵셔널로 변경
-}
+// QuestionCategoryScreen에서 전달하는 카테고리 타입 정의
+export type Category = {
+  id: number;
+  title: string;
+  tags: string;
+  icon: string;
+  color: string;
+};
 
-export default function QuestionCategoryScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute();
-  const { folderId, folderName } = (route.params as RouteParams) || {};
+// Post 타입 정의 (백엔드 API 응답과 일치해야 함)
+export type Post = {
+  id: number;
+  title: string;
+  content: string;
+  writerName: string;
+  writerId: number;
+  createdAt: string;
+  updatedAt: string;
+  categoryId: number;
+  views: number;
+};
 
-  const [posts, setPosts] = useState<Post[]>([]);
+// Answer 타입 정의 (백엔드 API 응답과 일치해야 함)
+export type Answer = {
+  id: number;
+  content: string;
+  writerName: string;
+  writerId: number;
+  createdAt: string;
+  updatedAt: string;
+  postId: number;
+};
 
-  const loadPosts = async () => {
-    if (!folderId) {
-      return; // ✅ folderId 없으면 그냥 리턴
-    }
-    try {
-      const data = await listPosts(folderId);
-      setPosts(data || []);
-    } catch {
-      Alert.alert('오류', '질문을 불러오지 못했습니다.');
-    }
-  };
+// 스택 내비게이션에 사용될 모든 화면의 파라미터 타입을 정확하게 정의합니다.
+export type QuestionStackParamList = {
+  QuestionCategory: undefined;
+  QuestionList: { category: Category };
+  QuestionDetail: { question: Post };
+  QuestionCreate: { category?: Category };
+  QuestionEdit: { question: Post };
+  AnswerWrite: { postId: number; answer?: Answer };
+};
 
-  useEffect(() => {
-    loadPosts();
-  }, [folderId]);
+const Stack = createNativeStackNavigator<QuestionStackParamList>();
 
-  const renderItem = ({ item }: { item: Post }) => (
-    <TouchableOpacity
-      style={{
-        backgroundColor: '#fff',
-        padding: 16,
-        borderRadius: 12,
-        marginVertical: 8,
-        elevation: 1,
-      }}
-      onPress={() => navigation.navigate('QuestionDetail', { id: item.id })}
-    >
-      <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
-      <Text style={{ marginTop: 4, color: '#555' }}>
-        {item.writerName ?? '익명'} · {new Date(item.createdAt).toLocaleDateString()}
-      </Text>
-    </TouchableOpacity>
-  );
-
+export default function QuestionStack() {
   return (
-    <View style={{ flex: 1, padding: 24, backgroundColor: '#fff' }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={28} color="black" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', marginLeft: 16 }}>
-          {folderName ?? '카테고리'}
-        </Text>
-        {folderId && (
-          <TouchableOpacity
-            style={{ marginLeft: 'auto' }}
-            onPress={() => navigation.navigate('QuestionWrite', { folderId })}
-          >
-            <Ionicons name="add-circle" size={28} color="black" />
-          </TouchableOpacity>
-        )}
-      </View>
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        ListEmptyComponent={<Text>질문이 없습니다.</Text>}
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="QuestionCategory"
+        component={QuestionCategoryScreen as React.ComponentType<any>}
       />
-    </View>
+      <Stack.Screen
+        name="QuestionList"
+        component={QuestionListScreen as React.ComponentType<any>}
+      />
+      <Stack.Screen
+        name="QuestionDetail"
+        component={QuestionDetailScreen as React.ComponentType<any>}
+      />
+      <Stack.Screen
+        name="QuestionCreate"
+        component={QuestionCreateScreen as React.ComponentType<any>}
+      />
+      <Stack.Screen
+        name="QuestionEdit"
+        component={QuestionEditScreen as React.ComponentType<any>}
+      />
+      <Stack.Screen
+        name="AnswerWrite"
+        component={AnswerWriteScreen as React.ComponentType<any>}
+      />
+    </Stack.Navigator>
   );
 }

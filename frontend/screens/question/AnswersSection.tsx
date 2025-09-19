@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import {
   listAnswers,
@@ -16,6 +17,7 @@ import {
   deleteAnswer,
   type Answer,
 } from '../../libs/api/answers';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = { postId: number };
 
@@ -23,6 +25,7 @@ export default function AnswersSection({ postId }: Props) {
   const [items, setItems] = useState<Answer[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isWriting, setIsWriting] = useState(false);
   const [text, setText] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -33,7 +36,7 @@ export default function AnswersSection({ postId }: Props) {
       const data = await listAnswers(postId);
       setItems(data);
     } catch (e) {
-      console.log(e);
+      console.error(e);
       Alert.alert('오류', '답변을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -59,9 +62,10 @@ export default function AnswersSection({ postId }: Props) {
     try {
       await createAnswer(postId, v);
       setText('');
+      setIsWriting(false);
       await load();
     } catch (e) {
-      console.log(e);
+      console.error(e);
       Alert.alert('오류', '등록에 실패했습니다.');
     }
   };
@@ -85,7 +89,7 @@ export default function AnswersSection({ postId }: Props) {
       cancelEdit();
       await load();
     } catch (e) {
-      console.log(e);
+      console.error(e);
       Alert.alert('오류', '수정에 실패했습니다.');
     }
   };
@@ -101,7 +105,7 @@ export default function AnswersSection({ postId }: Props) {
             await deleteAnswer(id);
             await load();
           } catch (e) {
-            console.log(e);
+            console.error(e);
             Alert.alert('오류', '삭제에 실패했습니다.');
           }
         },
@@ -157,17 +161,34 @@ export default function AnswersSection({ postId }: Props) {
     () => (
       <View style={styles.editor}>
         <Text style={styles.sectionTitle}>답변</Text>
-        <TextInput
-          placeholder="답변을 입력하세요"
-          style={styles.input}
-          value={text}
-          onChangeText={setText}
-          multiline
-        />
-        <Button title="등록" onPress={submit} />
+        {!isWriting ? (
+          <TouchableOpacity
+            style={styles.writeButton}
+            onPress={() => setIsWriting(true)}
+          >
+            <Text style={styles.writeButtonText}>답변 등록</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.writeContainer}>
+            <View style={styles.inputHeader}>
+              <Text style={styles.writeTitle}>답변 작성</Text>
+              <TouchableOpacity onPress={() => setIsWriting(false)}>
+                <Ionicons name="close" size={24} color="#999" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              placeholder="답변을 입력하세요"
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              multiline
+            />
+            <Button title="등록" onPress={submit} />
+          </View>
+        )}
       </View>
     ),
-    [text]
+    [text, isWriting]
   );
 
   return (
@@ -188,18 +209,47 @@ export default function AnswersSection({ postId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
   editor: { marginTop: 8, marginBottom: 12 },
-  input: {
+  writeButton: {
+    backgroundColor: '#4A90E2',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  writeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  writeContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  writeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   empty: { textAlign: 'center', color: '#666', marginTop: 16 },
   card: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
@@ -208,6 +258,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
   writer: { fontWeight: '600' },
   when: { color: '#666', fontSize: 12 },

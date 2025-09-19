@@ -1,40 +1,115 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Alert,
+  TextInput,
+  TouchableOpacity,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { QuestionStackParamList } from './QuestionStack';
+import { createPost } from '../../libs/api/posts';
 
 type Props = NativeStackScreenProps<QuestionStackParamList, 'QuestionCreate'>;
 
 export default function QuestionCreateScreen({ route, navigation }: Props) {
-  // MainTabs에서 정의한 파라미터: categoryId 또는 category(둘 중 하나/둘 다 가능)
-  const { categoryId, category } = (route.params as any) ?? {};
+  const { category } = route.params ?? {};
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !content.trim()) {
+      Alert.alert('알림', '제목과 내용을 모두 입력해주세요.');
+      return;
+    }
+
+    if (!category || !category.id) {
+      Alert.alert('알림', '카테고리를 선택해야 질문을 등록할 수 있습니다.');
+      return;
+    }
+
+    try {
+      await createPost({
+        title,
+        content,
+        categoryId: category.id,
+      });
+      Alert.alert('등록 완료', '질문이 성공적으로 등록되었습니다.');
+      navigation.goBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('오류', '질문 등록에 실패했습니다.');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>질문 등록</Text>
-
-      <View style={styles.info}>
-        <Text style={styles.label}>선택된 카테고리</Text>
-        <Text>
-          id: {categoryId ?? '-'} / obj: {category ? JSON.stringify(category) : '-'}
-        </Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>취소</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>질문 등록</Text>
+        <Button title="저장" onPress={handleSubmit} />
       </View>
 
-      <Button
-        title="임시 저장"
-        onPress={() => Alert.alert('알림', '폼/유효성 로직은 이후에 연결')}
+      <Text style={styles.categoryInfo}>
+        선택된 카테고리: {category?.title ?? '없음'}
+      </Text>
+
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="제목"
       />
-
-      <View style={{ height: 12 }} />
-
-      <Button title="목록으로" onPress={() => navigation.goBack()} />
+      <TextInput
+        style={[styles.input, { height: 200 }]}
+        value={content}
+        onChangeText={setContent}
+        placeholder="내용"
+        multiline
+        textAlignVertical="top"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  info: { paddingVertical: 8, gap: 6 },
-  label: { fontWeight: '600' },
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    color: '#4A90E2',
+    fontSize: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  categoryInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    fontSize: 16,
+  },
 });
