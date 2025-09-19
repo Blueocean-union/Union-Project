@@ -8,6 +8,7 @@ import {
   PanResponder,
   Alert,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +33,6 @@ interface DrawingPath {
   color: string;
   width: number;
   tool: string;
-  page: number;
 }
 
 interface DrawingPoint {
@@ -54,12 +54,18 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const { file, fileUri, subjectColor } = route.params;
   const navigation = useNavigation();
   
+  // 디버깅 로그 추가 (무한 렌더링 방지를 위해 제거)
+  // console.log('🔍 PDFDrawingScreen 렌더링 시작');
+  // console.log('📁 파일 정보:', file);
+  // console.log('🔗 파일 URI:', fileUri);
+  // console.log('🎨 주제 색상:', subjectColor);
+  
   // PDF 관련 상태
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // PDF 컴포넌트 렌더링을 위해 초기값 false
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoaded, setPdfLoaded] = useState(false); // PDF 로드 상태 추가
   
   // 필기 관련 상태
   const [currentTool, setCurrentTool] = useState('pen');
@@ -182,7 +188,6 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       color: currentColor,
       width: currentWidth,
       tool: currentTool,
-      page: currentPage,
     };
     
     const updatedPaths = [...drawingPaths, newPath];
@@ -244,8 +249,27 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
 
   // useEffect로 필기 데이터 로드
   useEffect(() => {
+    console.log('🔄 useEffect 실행 - loadAnnotations 호출');
     loadAnnotations();
-  }, [file.id]);
+  }, [file.id]); // file.id가 변경될 때만 실행
+
+  // PDF 컴포넌트 렌더링 조건 디버깅
+  useEffect(() => {
+    console.log('🔍 PDF 렌더링 조건 체크:');
+    console.log('  - loading:', loading);
+    console.log('  - error:', error);
+    console.log('  - fileUri:', fileUri);
+    console.log('  - pdfLoaded:', pdfLoaded);
+    console.log('  - 렌더링 가능:', !loading && !error && fileUri);
+  }, [loading, error, fileUri, pdfLoaded]);
+
+  // 화면이 로드될 때 loading 상태 초기화
+  useEffect(() => {
+    if (fileUri) {
+      console.log('📱 화면 로드 완료, loading 상태를 false로 설정');
+      setLoading(false);
+    }
+  }, [fileUri]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -337,50 +361,67 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </View>
         )}
         
-        {!loading && !error && (
+        {(() => {
+          console.log('🚀 PDF 컴포넌트 렌더링 시도:', { loading, error: !!error, fileUri: !!fileUri });
+          return !loading && !error && fileUri;
+        })() && (
           <View style={styles.pdfWrapper} {...panResponder.panHandlers}>
-            <Pdf
-              ref={pdfRef}
-              source={{ 
-                uri: fileUri,
-                cache: true,
-                cacheFileName: `pdf_${file.id}.pdf`
-              }}
-              style={styles.pdf}
-              onLoadComplete={(numberOfPages) => {
-                console.log('PDF 로드 완료:', numberOfPages, '페이지');
-                setTotalPages(numberOfPages);
-                setLoading(false);
-                setError(null);
-              }}
-              onPageChanged={(page) => {
-                console.log('페이지 변경:', page);
-                setCurrentPage(page);
-              }}
-              onError={(error: any) => {
-                console.error('PDF 로드 오류:', error);
-                setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
-                setLoading(false);
-              }}
-              enablePaging={true}
-              enableRTL={false}
-              enableAntialiasing={true}
-              enableAnnotationRendering={true}
-              password=""
-              spacing={0}
-              scale={scale}
-              minScale={0.5}
-              maxScale={3}
-              horizontal={false}
-              page={currentPage}
-              onScaleChanged={(scale) => {
-                console.log('스케일 변경:', scale);
-                setScale(scale);
-              }}
-              onLoadProgress={(percent) => {
-                console.log('PDF 로딩 진행률:', percent);
-              }}
-            />
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={true}
+              showsHorizontalScrollIndicator={false}
+              bounces={true}
+            >
+              {(() => {
+                console.log('📄 PDF 컴포넌트 렌더링 시작');
+                console.log('📄 PDF 소스:', { uri: fileUri, cache: false, cacheFileName: `pdf_${file.id}_${Date.now()}.pdf` });
+                return null;
+              })()}
+              <Pdf
+                ref={pdfRef}
+                source={{ 
+                  uri: fileUri,
+                  cache: false, // 캐시 비활성화로 손상된 파일 문제 해결
+                  cacheFileName: `pdf_${file.id}_${Date.now()}.pdf` // 고유한 파일명 사용
+                }}
+                style={[styles.pdf, { width: screenWidth * scale, height: screenHeight * scale }]}
+                onLoadComplete={(numberOfPages) => {
+                  console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
+                  console.log('📄 PDF 소스 URI:', fileUri);
+                  setTotalPages(numberOfPages);
+                  setLoading(false);
+                  setError(null);
+                  setPdfLoaded(true);
+                }}
+                onError={(error: any) => {
+                  console.error('❌ PDF 로드 오류:', error);
+                  console.error('❌ 오류 상세:', error.message);
+                  console.error('❌ 파일 URI:', fileUri);
+                  setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
+                  setLoading(false);
+                  setPdfLoaded(false);
+                }}
+                onLoadProgress={(percent) => {
+                  console.log('📊 PDF 로딩 진행률:', percent + '%');
+                }}
+                enablePaging={false}
+                enableRTL={false}
+                enableAntialiasing={true}
+                enableAnnotationRendering={true}
+                enableDoubleTapZoom={false}
+                password=""
+                spacing={0}
+                scale={scale}
+                minScale={0.5}
+                maxScale={3}
+                horizontal={false}
+                onScaleChanged={(scale) => {
+                  console.log('📏 스케일 변경:', scale);
+                  setScale(scale);
+                }}
+              />
+            </ScrollView>
             
             {/* SVG 필기 오버레이 */}
             <View style={styles.svgOverlay}>
@@ -390,21 +431,19 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
                 width={screenWidth}
                 height={screenHeight - 200} // 헤더와 툴바 높이 제외
               >
-                {/* 저장된 필기 경로들 (현재 페이지만) */}
-                {drawingPaths
-                  .filter(path => path.page === currentPage)
-                  .map((path) => (
-                    <Path
-                      key={path.id}
-                      d={path.path}
-                      stroke={path.color}
-                      strokeWidth={path.width}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={path.tool === 'highlighter' ? 0.5 : 1}
-                    />
-                  ))}
+                {/* 저장된 필기 경로들 */}
+                {drawingPaths.map((path) => (
+                  <Path
+                    key={path.id}
+                    d={path.path}
+                    stroke={path.color}
+                    strokeWidth={path.width}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                  />
+                ))}
                 
                 {/* 현재 그리는 경로 */}
                 {isDrawing && currentPath && (
@@ -522,8 +561,13 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  pdf: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  pdf: {
     backgroundColor: 'white',
   },
   svgOverlay: {
