@@ -8,13 +8,13 @@ import {
   PanResponder,
   Alert,
   Platform,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Pdf from 'react-native-pdf';
 import Svg, { Path, Circle } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
 
 interface FileItem {
@@ -63,9 +63,10 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // PDF 관련 상태
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1);
-  const [loading, setLoading] = useState(false); // PDF 컴포넌트 렌더링을 위해 초기값 false
+  const [loading, setLoading] = useState(true); // 초기 로딩 상태
   const [error, setError] = useState<string | null>(null);
   const [pdfLoaded, setPdfLoaded] = useState(false); // PDF 로드 상태 추가
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 }); // PDF 실제 렌더 크기
   
   // 필기 관련 상태
   const [currentTool, setCurrentTool] = useState('pen');
@@ -84,13 +85,29 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // 필기 데이터 로드
   const loadAnnotations = async () => {
     try {
-      const response = await api.get(`/api/annotations/${file.id}`);
-      console.log('📝 필기 데이터 응답:', response.data);
+      // annotation API는 별도의 토큰 처리
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log('📝 Annotation API 토큰 상태:', token ? '존재함' : '없음');
       
-      if (Array.isArray(response.data)) {
-        setDrawingPaths(response.data);
-      } else if (response.data && Array.isArray(response.data.annotations)) {
-        setDrawingPaths(response.data.annotations);
+      const response = await fetch(`http://52.78.209.115:8080/api/annotations/${file.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Annotation API 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📝 필기 데이터 응답:', data);
+      
+      if (Array.isArray(data)) {
+        setDrawingPaths(data);
+      } else if (data && Array.isArray(data.annotations)) {
+        setDrawingPaths(data.annotations);
       } else {
         setDrawingPaths([]);
       }
@@ -103,10 +120,27 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   // 필기 데이터 저장
   const saveAnnotations = async (newPaths: DrawingPath[]) => {
     try {
-      await api.post(`/api/annotations/${file.id}`, {
-        annotations: newPaths
+      // annotation API는 별도의 토큰 처리
+      const token = await AsyncStorage.getItem('accessToken');
+      console.log('📝 Annotation 저장 API 토큰 상태:', token ? '존재함' : '없음');
+      
+      const response = await fetch(`http://52.78.209.115:8080/api/annotations/${file.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          annotations: newPaths
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Annotation 저장 API 실패: ${response.status}`);
+      }
+
       setDrawingPaths(newPaths);
+      console.log('✅ 필기 데이터 저장 성공');
     } catch (error) {
       console.error('필기 데이터 저장 실패:', error);
       Alert.alert('오류', '필기를 저장할 수 없습니다.');
@@ -263,14 +297,6 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     console.log('  - 렌더링 가능:', !loading && !error && fileUri);
   }, [loading, error, fileUri, pdfLoaded]);
 
-  // 화면이 로드될 때 loading 상태 초기화
-  useEffect(() => {
-    if (fileUri) {
-      console.log('📱 화면 로드 완료, loading 상태를 false로 설정');
-      setLoading(false);
-    }
-  }, [fileUri]);
-
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 헤더 */}
@@ -361,115 +387,105 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
           </View>
         )}
         
-        {(() => {
-          console.log('🚀 PDF 컴포넌트 렌더링 시도:', { loading, error: !!error, fileUri: !!fileUri });
-          return !loading && !error && fileUri;
-        })() && (
-          <View style={styles.pdfWrapper} {...panResponder.panHandlers}>
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={true}
-              showsHorizontalScrollIndicator={false}
-              bounces={true}
-            >
-              {(() => {
-                console.log('📄 PDF 컴포넌트 렌더링 시작');
-                console.log('📄 PDF 소스:', { uri: fileUri, cache: false, cacheFileName: `pdf_${file.id}_${Date.now()}.pdf` });
-                return null;
-              })()}
-              <Pdf
-                ref={pdfRef}
-                source={{ 
-                  uri: fileUri,
-                  cache: false, // 캐시 비활성화로 손상된 파일 문제 해결
-                  cacheFileName: `pdf_${file.id}_${Date.now()}.pdf` // 고유한 파일명 사용
-                }}
-                style={[styles.pdf, { width: screenWidth * scale, height: screenHeight * scale }]}
-                onLoadComplete={(numberOfPages) => {
-                  console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
-                  console.log('📄 PDF 소스 URI:', fileUri);
-                  setTotalPages(numberOfPages);
-                  setLoading(false);
-                  setError(null);
-                  setPdfLoaded(true);
-                }}
-                onError={(error: any) => {
-                  console.error('❌ PDF 로드 오류:', error);
-                  console.error('❌ 오류 상세:', error.message);
-                  console.error('❌ 파일 URI:', fileUri);
-                  setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
-                  setLoading(false);
-                  setPdfLoaded(false);
-                }}
-                onLoadProgress={(percent) => {
-                  console.log('📊 PDF 로딩 진행률:', percent + '%');
-                }}
-                enablePaging={false}
-                enableRTL={false}
-                enableAntialiasing={true}
-                enableAnnotationRendering={true}
-                enableDoubleTapZoom={false}
-                password=""
-                spacing={0}
-                scale={scale}
-                minScale={0.5}
-                maxScale={3}
-                horizontal={false}
-                onScaleChanged={(scale) => {
-                  console.log('📏 스케일 변경:', scale);
-                  setScale(scale);
-                }}
-              />
-            </ScrollView>
+        {!loading && !error && fileUri && (
+          <View 
+            style={styles.pdfContainer}
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setCanvasSize({ width, height });
+              console.log('📐 PDF 컨테이너 크기:', width, 'x', height);
+            }}
+          >
+            <Pdf
+              ref={pdfRef}
+              source={{ 
+                uri: fileUri,
+                cache: false,
+                cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
+              }}
+              style={StyleSheet.absoluteFill}
+              onLoadComplete={(numberOfPages, width, height) => {
+                console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
+                console.log('📄 PDF 크기:', width, 'x', height);
+                setTotalPages(numberOfPages);
+                setLoading(false);
+                setError(null);
+                setPdfLoaded(true);
+              }}
+              onError={(error: any) => {
+                console.error('❌ PDF 로드 오류:', error);
+                setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
+                setLoading(false);
+                setPdfLoaded(false);
+              }}
+              onLoadProgress={(percent) => {
+                console.log('📊 PDF 로딩 진행률:', percent + '%');
+              }}
+              enablePaging={false}
+              enableRTL={false}
+              enableAntialiasing={true}
+              enableAnnotationRendering={true}
+              enableDoubleTapZoom={true}
+              password=""
+              spacing={0}
+              scale={scale}
+              minScale={0.5}
+              maxScale={3}
+              horizontal={false}
+              onScaleChanged={(scale) => {
+                console.log('📏 스케일 변경:', scale);
+                setScale(scale);
+              }}
+            />
             
-            {/* SVG 필기 오버레이 */}
-            <View style={styles.svgOverlay}>
-              <Svg
-                ref={svgRef}
-                style={styles.svg}
-                width={screenWidth}
-                height={screenHeight - 200} // 헤더와 툴바 높이 제외
-              >
-                {/* 저장된 필기 경로들 */}
-                {drawingPaths.map((path) => (
-                  <Path
-                    key={path.id}
-                    d={path.path}
-                    stroke={path.color}
-                    strokeWidth={path.width}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={path.tool === 'highlighter' ? 0.5 : 1}
-                  />
-                ))}
-                
-                {/* 현재 그리는 경로 */}
-                {isDrawing && currentPath && (
-                  <Path
-                    d={currentPath}
-                    stroke={currentColor}
-                    strokeWidth={currentWidth}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity={currentTool === 'highlighter' ? 0.5 : 1}
-                  />
-                )}
-                
-                {/* 현재 그리는 점들 */}
-                {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
-                  <Circle
-                    key={index}
-                    cx={point.x}
-                    cy={point.y}
-                    r={currentWidth / 2}
-                    fill={currentColor}
-                  />
-                ))}
-              </Svg>
-            </View>
+            {/* SVG 필기 오버레이 - PDF 위에 절대 위치 */}
+            {pdfLoaded && canvasSize.width > 0 && (
+              <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
+                <Svg
+                  ref={svgRef}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                >
+                  {/* 저장된 필기 경로들 */}
+                  {drawingPaths.map((path) => (
+                    <Path
+                      key={path.id}
+                      d={path.path}
+                      stroke={path.color}
+                      strokeWidth={path.width}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={path.tool === 'highlighter' ? 0.5 : 1}
+                    />
+                  ))}
+                  
+                  {/* 현재 그리는 경로 */}
+                  {isDrawing && currentPath && (
+                    <Path
+                      d={currentPath}
+                      stroke={currentColor}
+                      strokeWidth={currentWidth}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={currentTool === 'highlighter' ? 0.5 : 1}
+                    />
+                  )}
+                  
+                  {/* 현재 그리는 점들 */}
+                  {isDrawing && currentTool === 'pen' && currentPoints.map((point, index) => (
+                    <Circle
+                      key={index}
+                      cx={point.x}
+                      cy={point.y}
+                      r={currentWidth / 2}
+                      fill={currentColor}
+                    />
+                  ))}
+                </Svg>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -557,31 +573,9 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  pdfWrapper: {
+  pdfContainer: {
     flex: 1,
     position: 'relative',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  pdf: {
-    backgroundColor: 'white',
-  },
-  svgOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
-  },
-  svg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
   },
   loadingContainer: {
     flex: 1,

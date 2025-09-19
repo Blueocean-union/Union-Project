@@ -23,6 +23,9 @@ import type { SubjectStackParamList } from '../MainTabs';
 
 type Props = NativeStackScreenProps<SubjectStackParamList, 'SubjectList'>;
 
+// 헥스 색상 유효성 검사 함수
+const isValidHex = (s: string) => /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s);
+
 export default function SubjectListScreen({ navigation }: Props) {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,9 +94,15 @@ export default function SubjectListScreen({ navigation }: Props) {
         [];
       
       console.log('📋 처리된 과목 목록:', list);
-      console.log('📊 과목 개수:', list.length);
+      console.log('📊 과목 개수:', Array.isArray(list) ? list.length : '배열이 아님');
       
-      setSubjects(list);
+      // 배열인지 확인 후 설정
+      if (Array.isArray(list)) {
+        setSubjects(list);
+      } else {
+        console.warn('⚠️ API 응답이 배열이 아닙니다:', list);
+        setSubjects([]);
+      }
     } catch (e: any) {
       console.error('❌ 과목 목록 불러오기 실패:', e);
       console.error('❌ 에러 상세:', e.response?.data || e.message);
@@ -309,16 +318,16 @@ export default function SubjectListScreen({ navigation }: Props) {
           <ActivityIndicator />
         ) : (
           <View style={styles.subjectsList}>
-            {subjects.map((item) => (
+            {subjects && Array.isArray(subjects) ? subjects.map((item) => (
               <TouchableOpacity 
                 key={item.id} 
-                style={[styles.subjectCard, { borderLeftColor: item.color || '#2b3f85' }]}
+                style={[styles.subjectCard, { borderLeftColor: isValidHex(item.color) ? item.color : '#2b3f85' }]}
                 onPress={() => {
                   console.log('🔘 과목 카드 클릭됨:', item.id, item.name ?? item.title);
                   navigation.navigate('SubjectInner', {
                     subjectId: item.id,
                     subjectName: item.name ?? item.title,
-                    subjectColor: item.color || '#2b3f85'
+                    subjectColor: isValidHex(item.color) ? item.color : '#2b3f85'
                   });
                 }}
                 activeOpacity={0.7}
@@ -353,7 +362,7 @@ export default function SubjectListScreen({ navigation }: Props) {
                         styles.progressFill, 
                         { 
                           width: `${(item.progress || 0.75) * 100}%`,
-                          backgroundColor: item.color || '#2b3f85'
+                          backgroundColor: isValidHex(item.color) ? item.color : '#2b3f85'
                         }
                       ]} 
                     />
@@ -370,7 +379,9 @@ export default function SubjectListScreen({ navigation }: Props) {
                   </Text>
                 )}
               </TouchableOpacity>
-            ))}
+            )) : (
+              <Text style={styles.emptyText}>과목이 없습니다</Text>
+            )}
           </View>
         )}
       </View>
@@ -548,5 +559,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1A346F',
     fontStyle: 'italic',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });

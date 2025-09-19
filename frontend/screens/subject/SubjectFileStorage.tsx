@@ -18,6 +18,7 @@ import * as Sharing from 'expo-sharing';
 import { useAudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../libs/api/axios';
+import { Buffer } from 'buffer';
 import AudioPlayerOverlay from './AudioPlayerOverlay';
 
 interface FileItem {
@@ -52,6 +53,42 @@ export default function SubjectFileStorage({
   const [newFileName, setNewFileName] = useState('');
   const [audioPlayerFile, setAudioPlayerFile] = useState<FileItem | null>(null);
   const [audioPlayerUri, setAudioPlayerUri] = useState<string>('');
+
+  // 프록시 다운로드 함수 (axios + arraybuffer)
+  const proxyDownloadToCache = async (fileId: number, localPath: string, contentType: string = 'application/pdf') => {
+    try {
+      console.log('🔄 프록시 다운로드 시작:', fileId, localPath);
+      
+      // 1) 프록시에서 바이너리 수신
+      const res = await api.get(`/api/files/${fileId}/download`, {
+        responseType: 'arraybuffer',
+        headers: {
+          Accept: contentType,
+        },
+      });
+
+      console.log('📡 프록시 응답 상태:', res.status);
+      console.log('📊 응답 데이터 크기:', res.data.byteLength);
+
+      // 2) Base64로 변환 후 파일로 저장
+      const base64 = Buffer.from(res.data).toString('base64');
+      await FileSystem.writeAsStringAsync(localPath, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // 3) 파일 존재 확인
+      const info = await FileSystem.getInfoAsync(localPath);
+      if (!info.exists) {
+        throw new Error('프록시 저장 실패: 파일이 생성되지 않음');
+      }
+
+      console.log('✅ 프록시 다운로드 완료:', localPath);
+      return localPath;
+    } catch (error) {
+      console.error('❌ 프록시 다운로드 실패:', error);
+      throw error;
+    }
+  };
 
   // 파일 목록 조회
   const fetchFiles = async () => {
@@ -214,8 +251,9 @@ export default function SubjectFileStorage({
       console.log('📂 openFile 시작:', file.originalFileName);
       setLoading(true);
       
-      // 로컬 캐시 확인
-      const localPath = `${FileSystem.cacheDirectory}${file.id}_${file.originalFileName}`;
+      // 로컬 캐시 확인 (ASCII 파일명으로 안전하게)
+      const safeName = `${file.id}.pdf`; // 확장자만 유지, 한글/공백 제거
+      const localPath = `${FileSystem.cacheDirectory}${safeName}`;
       console.log('📁 로컬 캐시 경로:', localPath);
       const fileExists = await FileSystem.getInfoAsync(localPath);
       console.log('📁 로컬 파일 존재 여부:', fileExists.exists);
@@ -282,10 +320,87 @@ export default function SubjectFileStorage({
         let retryCount = 0;
         const maxRetries = 3;
         
+        // AWS S3 presigned URL을 그대로 사용하되, fetch로 다운로드 후 파일로 저장
+        console.log('🔧 원본 다운로드 URL 사용:', downloadUrl);
+        
         while (retryCount < maxRetries) {
           try {
             console.log(`📥 PDF 파일 다운로드 시작... (시도 ${retryCount + 1}/${maxRetries})`);
-            downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+            
+            // S3 URL에서 문제가 되는 response-content-disposition 파라미터 제거
+            const url = new URL(downloadUrl);
+            url.searchParams.delete('response-content-disposition');
+            const cleanUrl = url.toString();
+            console.log('🔧 정리된 S3 URL:', cleanUrl);
+            
+            // 먼저 정리된 S3 URL로 시도
+            let response;
+            try {
+              response = await fetch(cleanUrl, {
+                method: 'GET',
+                headers: {
+                  'Accept': 'application/pdf',
+                },
+              });
+              
+              // S3 URL이 4xx 오류를 반환하면 원본 URL로 재시도
+              if (!response.ok && response.status >= 400 && response.status < 500) {
+                console.warn(`⚠️ 정리된 S3 URL 실패 (${response.status}), 원본 S3 URL로 재시도`);
+                
+                // 원본 S3 URL로 재시도
+                const originalResponse = await fetch(downloadUrl, {
+                  method: 'GET',
+                  headers: {
+                    'Accept': 'application/pdf',
+                  },
+                });
+                
+                if (originalResponse.ok) {
+                  const arrayBuffer = await originalResponse.arrayBuffer();
+                  const uint8Array = new Uint8Array(arrayBuffer);
+                  const base64 = btoa(String.fromCharCode(...uint8Array));
+                  await FileSystem.writeAsStringAsync(localPath, base64, {
+                    encoding: FileSystem.EncodingType.Base64,
+                  });
+                  downloadResult = { uri: localPath };
+                  console.log('✅ 원본 S3 URL PDF 파일 다운로드 완료:', downloadResult.uri);
+                  break; // 성공 시 루프 종료
+                } else {
+                  console.warn(`⚠️ 원본 S3 URL도 실패 (${originalResponse.status}), 프록시로 폴백`);
+                  
+                  // 프록시 다운로드 함수 사용
+                  await proxyDownloadToCache(file.id, localPath, 'application/pdf');
+                  downloadResult = { uri: localPath };
+                  console.log('✅ 프록시 PDF 파일 다운로드 완료:', downloadResult.uri);
+                  break; // 성공 시 루프 종료
+                }
+              }
+            } catch (s3Error) {
+              console.warn('⚠️ S3 URL 네트워크 오류, 백엔드 프록시로 폴백:', s3Error);
+              
+              // 프록시 다운로드 함수 사용
+              await proxyDownloadToCache(file.id, localPath, 'application/pdf');
+              downloadResult = { uri: localPath };
+              console.log('✅ 프록시 PDF 파일 다운로드 완료:', downloadResult.uri);
+              break; // 성공 시 루프 종료
+            }
+            
+            if (!response.ok) {
+              throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // ArrayBuffer를 base64로 변환
+            const base64 = btoa(String.fromCharCode(...uint8Array));
+            
+            // base64를 파일로 저장
+            await FileSystem.writeAsStringAsync(localPath, base64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            
+            downloadResult = { uri: localPath };
             console.log('✅ PDF 파일 다운로드 완료:', downloadResult.uri);
             
             // 다운로드된 파일 검증
@@ -466,8 +581,10 @@ export default function SubjectFileStorage({
       try {
         setLoading(true);
         
-        // 로컬 캐시 확인
-        const localPath = `${FileSystem.cacheDirectory}${file.id}_${file.originalFileName}`;
+        // 로컬 캐시 확인 (ASCII 파일명으로 안전하게)
+        const fileExtension = file.originalFileName.split('.').pop() || 'file';
+        const safeName = `${file.id}.${fileExtension}`; // 확장자만 유지, 한글/공백 제거
+        const localPath = `${FileSystem.cacheDirectory}${safeName}`;
         const fileExists = await FileSystem.getInfoAsync(localPath);
         
         let fileUri = localPath;
@@ -490,7 +607,84 @@ export default function SubjectFileStorage({
           const downloadUrlData = await downloadUrlResponse.json();
           const downloadUrl = downloadUrlData.url;
           
-          const downloadResult = await FileSystem.downloadAsync(downloadUrl, localPath);
+          // AWS S3 presigned URL을 그대로 사용하되, fetch로 다운로드 후 파일로 저장
+          console.log('🔧 오디오 파일 원본 다운로드 URL 사용:', downloadUrl);
+          
+          // S3 URL에서 문제가 되는 response-content-disposition 파라미터 제거
+          const url = new URL(downloadUrl);
+          url.searchParams.delete('response-content-disposition');
+          const cleanUrl = url.toString();
+          console.log('🔧 오디오 파일 정리된 S3 URL:', cleanUrl);
+          
+          // 먼저 정리된 S3 URL로 시도
+          let response;
+          try {
+            response = await fetch(cleanUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': file.contentType,
+              },
+            });
+            
+            // S3 URL이 4xx 오류를 반환하면 원본 URL로 재시도
+            if (!response.ok && response.status >= 400 && response.status < 500) {
+              console.warn(`⚠️ 정리된 S3 URL 실패 (${response.status}), 원본 S3 URL로 재시도`);
+              
+              // 원본 S3 URL로 재시도
+              const originalResponse = await fetch(downloadUrl, {
+                method: 'GET',
+                headers: {
+                  'Accept': file.contentType,
+                },
+              });
+              
+              if (originalResponse.ok) {
+                const arrayBuffer = await originalResponse.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const base64 = btoa(String.fromCharCode(...uint8Array));
+                await FileSystem.writeAsStringAsync(localPath, base64, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const downloadResult = { uri: localPath };
+                fileUri = downloadResult.uri;
+                console.log('✅ 원본 S3 URL 오디오 파일 다운로드 완료:', fileUri);
+                return; // 성공 시 함수 종료
+              } else {
+                console.warn(`⚠️ 원본 S3 URL도 실패 (${originalResponse.status}), 프록시로 폴백`);
+                
+                // 프록시 다운로드 함수 사용
+                await proxyDownloadToCache(file.id, localPath, file.contentType);
+                const downloadResult = { uri: localPath };
+                fileUri = downloadResult.uri;
+                return; // 성공 시 함수 종료
+              }
+            }
+          } catch (s3Error) {
+            console.warn('⚠️ S3 URL 네트워크 오류, 백엔드 프록시로 폴백:', s3Error);
+            
+            // 프록시 다운로드 함수 사용
+            await proxyDownloadToCache(file.id, localPath, file.contentType);
+            const downloadResult = { uri: localPath };
+            fileUri = downloadResult.uri;
+            return; // 성공 시 함수 종료
+          }
+          
+          if (!response.ok) {
+            throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          // ArrayBuffer를 base64로 변환
+          const base64 = btoa(String.fromCharCode(...uint8Array));
+          
+          // base64를 파일로 저장
+          await FileSystem.writeAsStringAsync(localPath, base64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          const downloadResult = { uri: localPath };
           fileUri = downloadResult.uri;
         }
 
