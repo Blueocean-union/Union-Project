@@ -23,7 +23,6 @@ export default function FolderManageScreen({ route }: Props) {
       Alert.alert('생성 완료', `하위 폴더 ID: ${id}`);
       setChildName('');
     } catch (e) {
-      console.log(e);
       Alert.alert('오류', '하위 폴더 생성 실패');
     }
   };
@@ -36,7 +35,6 @@ export default function FolderManageScreen({ route }: Props) {
       Alert.alert('수정 완료', '폴더 이름이 변경되었습니다.');
       setNewName('');
     } catch (e) {
-      console.log(e);
       Alert.alert('오류', '이름 변경 실패');
     }
   };
@@ -52,7 +50,6 @@ export default function FolderManageScreen({ route }: Props) {
             await deleteFolder(folderId);
             Alert.alert('삭제 완료');
           } catch (e) {
-            console.log(e);
             Alert.alert('오류', '폴더 삭제 실패');
           }
         },
@@ -65,7 +62,6 @@ export default function FolderManageScreen({ route }: Props) {
       const f = await getFolder(folderId);
       Alert.alert('폴더 정보', JSON.stringify(f, null, 2));
     } catch (e) {
-      console.log(e);
       Alert.alert('오류', '폴더 정보를 가져오지 못했습니다.');
     }
   };

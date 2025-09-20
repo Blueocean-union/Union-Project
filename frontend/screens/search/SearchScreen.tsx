@@ -90,7 +90,7 @@ export default function SearchScreen() {
           }
         });
       } catch (e) {
-        console.log('URL 디코딩 실패:', e);
+        // URL 디코딩 실패 (콘솔 로그 제거)
       }
     }
     
@@ -184,11 +184,9 @@ export default function SearchScreen() {
     );
 
     try {
-      console.log('검색 요청 시작:', query);
       
       // 토큰 가져오기
       const token = await AsyncStorage.getItem('accessToken');
-      console.log('토큰 확인:', token ? '있음' : '없음');
       
       const response = await axios.get<GoogleSearchResponse>('http://52.78.209.115:8080/api/search', {
         params: {
@@ -205,17 +203,11 @@ export default function SearchScreen() {
         }
       });
 
-      console.log('검색 응답:', response.data);
       
       // Google API 응답에서 items 배열 추출
       const searchResults = response.data?.items || [];
       
       // 디버깅: 원본 데이터 확인
-      if (searchResults.length > 0) {
-        console.log('첫 번째 결과 원본:', searchResults[0]);
-        console.log('제목 원본:', searchResults[0].title);
-        console.log('제목 정리 후:', cleanText(searchResults[0].title));
-      }
 
       setSearchTabs(tabs =>
         tabs.map(tab =>
@@ -225,8 +217,7 @@ export default function SearchScreen() {
         )
       );
     } catch (error: any) {
-      console.error('검색 오류:', error);
-      console.error('오류 상세:', error.response?.data || error.message);
+      // 검색 오류 처리 (콘솔 로그 제거)
       
       let errorMessage = '검색 중 문제가 발생했습니다.';
       if (error.response?.status === 400) {

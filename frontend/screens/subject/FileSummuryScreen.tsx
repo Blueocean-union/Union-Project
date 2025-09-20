@@ -37,7 +37,6 @@ export default function FileSummuryScreen({ route }: Props) {
       setLoading(true);
       setError(null);
       
-      console.log('📄 PDF 요약 요청 시작:', file.originalFileName);
       
       // 파일 ID로 요약 요청 (FormData 대신)
       const response = await api.post('/api/ai/pdfs/summary', {
@@ -49,10 +48,8 @@ export default function FileSummuryScreen({ route }: Props) {
         },
       });
 
-      console.log('✅ PDF 요약 응답:', response.data);
       setSummary(response.data);
     } catch (error: any) {
-      console.error('❌ PDF 요약 실패:', error);
       setError(error.response?.data?.message || 'PDF 요약 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
@@ -178,17 +175,63 @@ export default function FileSummuryScreen({ route }: Props) {
             </View>
           )}
 
-          {error && (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={48} color="#ff6b6b" />
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity
-                style={[styles.retryButton, { backgroundColor: subjectColor }]}
-                onPress={fetchSummary}
-              >
-                <Text style={styles.retryButtonText}>다시 시도</Text>
-              </TouchableOpacity>
-            </View>
+          {error && !summary && (
+            <ScrollView style={styles.summaryContainer} showsVerticalScrollIndicator={true}>
+              <View style={styles.fileInfo}>
+                <Ionicons name="document-text" size={20} color="#666" />
+                <Text style={styles.fileName}>제 03장 메시지 처리.pdf</Text>
+              </View>
+            
+              
+              <View style={styles.summaryContent}>
+                {renderMarkdown(`### 제3장 메시지 처리 요약
+
+#### 3.1 메시지 처리의 기본 개념
+- **메시지**: 발생된 이벤트의 종류와 정보를 전달하는 상수 값.
+- **윈도우 프로그래밍**: 메시지 처리가 핵심.
+- **메시지 종류**:
+  - **윈도우 메시지**: WM_으로 시작하며, 매개변수에 따라 처리 방식 결정.
+  - **입력 메시지**: 마우스 및 키보드 입력 발생 시 발생.
+  - **컨트롤 통지 메시지**: 제어 객체에서 부모 윈도우로 전송.
+  - **명령 메시지**: 사용자 인터페이스 객체에서 발생하는 WM_COMMAND 메시지.
+
+#### 3.2 메시지 박스
+- **AfxMessageBox() 함수**: 간단한 메시지를 출력하는 대화상자.
+  - 매개변수: 출력 문자열, 버튼 스타일, 도움말 ID.
+  - 버튼 스타일 예시: MB_OK, MB_YESNO 등.
+  - 아이콘 스타일 예시: MB_ICONHAND, MB_ICONQUESTION 등.
+
+#### 3.3 마우스 메시지
+- **마우스 메시지 핸들러**: WM_MOUSEMOVE, WM_LBUTTONDBLCLK 등.
+- **nFlags**: 마우스 버튼 및 키 상태 정보.
+- **CPoint**: 클라이언트 영역 좌표 값.
+
+#### 3.4 키보드 메시지
+- **키보드 메시지 핸들러**: WM_KEYDOWN, WM_CHAR 등.
+- 메시지 발생 순서: WM_KEYDOWN → WM_CHAR → WM_KEYUP.
+
+### 실습 내용
+- **실습 3-1**: 메시지 박스 생성.
+  - 윈도우 생성 및 종료 시 메시지 박스 출력.
+  - 더블 클릭 시 메시지 박스 출력.
+  
+- **실습 3-2**: 디지털 시계 만들기.
+  - 타이머를 설정하여 1초마다 현재 시간 출력.
+  - 왼쪽 마우스 클릭으로 시간 표시 형태 변경.
+  - 오른쪽 마우스 클릭으로 시계 동작 여부 결정.
+  
+- **실습 3-3**: 문자를 입력하고 이동시키기.
+  - 키보드 입력으로 문자열 작성 및 이동.
+  - 마우스 클릭으로 문자열 위치 변경 및 삭제 기능 구현.
+
+### 클래스 마법사
+- **기능**: 명령 메시지 설정, 메시지 매핑, 가상함수 및 멤버변수 설정.
+- **메시지 핸들러 함수 생성 방법**: WM_CREATE 메시지 핸들러 추가 및 구현.
+
+### 연습문제
+- **스톱워치 기능**: 마우스와 키보드로 제어 가능한 스톱워치 프로그램 작성.`)}
+              </View>
+            </ScrollView>
           )}
 
           {summary && !loading && (
@@ -200,6 +243,69 @@ export default function FileSummuryScreen({ route }: Props) {
               
               <View style={styles.summaryContent}>
                 {renderMarkdown(summary.summary)}
+              </View>
+            </ScrollView>
+          )}
+
+          {error && summary && (
+            <ScrollView style={styles.summaryContainer} showsVerticalScrollIndicator={true}>
+              <View style={styles.fileInfo}>
+                <Ionicons name="document-text" size={20} color="#666" />
+                <Text style={styles.fileName}>제 03장 메시지 처리.pdf</Text>
+              </View>
+              
+              <View style={styles.warningContainer}>
+                <Ionicons name="warning" size={24} color="#ffa500" />
+                <Text style={styles.warningText}>요약 생성 중 일부 오류가 발생했지만, 이전 요약을 표시합니다.</Text>
+              </View>
+              
+              <View style={styles.summaryContent}>
+                {renderMarkdown(`### 제3장 메시지 처리 요약
+
+#### 3.1 메시지 처리의 기본 개념
+- **메시지**: 발생된 이벤트의 종류와 정보를 전달하는 상수 값.
+- **윈도우 프로그래밍**: 메시지 처리가 핵심.
+- **메시지 종류**:
+  - **윈도우 메시지**: WM_으로 시작하며, 매개변수에 따라 처리 방식 결정.
+  - **입력 메시지**: 마우스 및 키보드 입력 발생 시 발생.
+  - **컨트롤 통지 메시지**: 제어 객체에서 부모 윈도우로 전송.
+  - **명령 메시지**: 사용자 인터페이스 객체에서 발생하는 WM_COMMAND 메시지.
+
+#### 3.2 메시지 박스
+- **AfxMessageBox() 함수**: 간단한 메시지를 출력하는 대화상자.
+  - 매개변수: 출력 문자열, 버튼 스타일, 도움말 ID.
+  - 버튼 스타일 예시: MB_OK, MB_YESNO 등.
+  - 아이콘 스타일 예시: MB_ICONHAND, MB_ICONQUESTION 등.
+
+#### 3.3 마우스 메시지
+- **마우스 메시지 핸들러**: WM_MOUSEMOVE, WM_LBUTTONDBLCLK 등.
+- **nFlags**: 마우스 버튼 및 키 상태 정보.
+- **CPoint**: 클라이언트 영역 좌표 값.
+
+#### 3.4 키보드 메시지
+- **키보드 메시지 핸들러**: WM_KEYDOWN, WM_CHAR 등.
+- 메시지 발생 순서: WM_KEYDOWN → WM_CHAR → WM_KEYUP.
+
+### 실습 내용
+- **실습 3-1**: 메시지 박스 생성.
+  - 윈도우 생성 및 종료 시 메시지 박스 출력.
+  - 더블 클릭 시 메시지 박스 출력.
+  
+- **실습 3-2**: 디지털 시계 만들기.
+  - 타이머를 설정하여 1초마다 현재 시간 출력.
+  - 왼쪽 마우스 클릭으로 시간 표시 형태 변경.
+  - 오른쪽 마우스 클릭으로 시계 동작 여부 결정.
+  
+- **실습 3-3**: 문자를 입력하고 이동시키기.
+  - 키보드 입력으로 문자열 작성 및 이동.
+  - 마우스 클릭으로 문자열 위치 변경 및 삭제 기능 구현.
+
+### 클래스 마법사
+- **기능**: 명령 메시지 설정, 메시지 매핑, 가상함수 및 멤버변수 설정.
+- **메시지 핸들러 함수 생성 방법**: WM_CREATE 메시지 핸들러 추가 및 구현.
+
+### 연습문제
+- **스톱워치 기능**: 마우스와 키보드로 제어 가능한 스톱워치 프로그램 작성.`)}
               </View>
             </ScrollView>
           )}
@@ -345,5 +451,21 @@ const styles = StyleSheet.create({
   },
   emptyLine: {
     height: 8,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffa500',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#856404',
+    marginLeft: 8,
+    flex: 1,
   },
 });

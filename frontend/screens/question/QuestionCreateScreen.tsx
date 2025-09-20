@@ -45,7 +45,6 @@ export default function QuestionCreateScreen({ route, navigation }: Props) {
         { text: '확인', onPress: () => navigation.goBack() }
       ]);
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '질문 등록에 실패했습니다.');
     } finally {
       setIsSubmitting(false);

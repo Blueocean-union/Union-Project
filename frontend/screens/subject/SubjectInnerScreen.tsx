@@ -30,37 +30,10 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
   const fetchSubject = async () => {
     setLoading(true);
     try {
-      console.log('🔄 과목 상세 정보 불러오기 시작:', subjectId);
-      
       // 토큰 확인
       const token = await AsyncStorage.getItem('accessToken');
-      console.log('🔑 토큰 상태:', token ? '존재함' : '없음');
-      if (token) {
-        console.log('🔑 토큰 길이:', token.length);
-        console.log('🔑 토큰 시작:', token.substring(0, 20) + '...');
-        console.log('🔑 토큰 형식:', token.startsWith('Bearer ') ? 'Bearer 포함' : 'Bearer 없음');
-        
-        // 토큰 유효성 테스트 (간단한 API 호출)
-        try {
-          console.log('🧪 토큰 유효성 테스트 시작...');
-          const testResponse = await fetch('http://52.78.209.115:8080/api/subjects', {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          console.log('🧪 테스트 응답 상태:', testResponse.status);
-          if (testResponse.status === 401) {
-            console.log('❌ 토큰이 유효하지 않습니다!');
-          }
-        } catch (testError) {
-          console.log('❌ 토큰 테스트 실패:', testError);
-        }
-      }
       
       const data = await getSubject(subjectId);
-      console.log('📡 과목 상세 API 응답:', data);
       
       // API 응답이 있으면 사용, 없으면 기본값 사용
       const subjectData = data || {
@@ -76,13 +49,7 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
       
       setSubject(subjectData);
     } catch (e: any) {
-      console.error('❌ 과목 상세 정보 불러오기 실패:', e);
-      console.error('❌ 에러 타입:', e.constructor.name);
-      console.error('❌ 에러 메시지:', e.message);
-      console.error('❌ 에러 코드:', e.code);
-      console.error('❌ 에러 응답:', e.response?.data);
-      console.error('❌ 에러 상태:', e.response?.status);
-      console.log('📝 기본값으로 설정:', { subjectId, subjectName, subjectColor });
+      // 에러 처리 (콘솔 로그 제거)
       
       // API가 없을 경우 기본값 설정
       setSubject({
@@ -131,10 +98,9 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
           });
         }
       });
-      console.log('📅 필터링된 일정:', grouped);
       setSchedules(grouped);
     } catch (err) {
-      console.error('주간 일정 불러오기 실패:', err);
+      // 에러 처리 (콘솔 로그 제거)
     }
   };
 
@@ -196,7 +162,6 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
 
 
   const handleAddSchedule = () => {
-    console.log('📅 일정 버튼 누름');
     if (Platform.OS === 'web') {
       alert('일정 추가 기능');
     } else {
@@ -205,7 +170,6 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
   };
 
   const handleEditSubject = () => {
-    console.log('✏️ 과목 수정 버튼 누름');
     if (Platform.OS === 'web') {
       const newName = prompt('과목 이름을 수정하세요:', subjectName);
       if (newName && newName !== subjectName) {
@@ -234,9 +198,7 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
 
   const updateSubjectInfo = async (data: { name?: string; color?: string; isFavorite?: boolean }) => {
     try {
-      console.log('🔄 과목 정보 업데이트:', data);
       await updateSubject(subjectId, data);
-      console.log('✅ 과목 정보 업데이트 성공');
       
       if (Platform.OS === 'web') {
         alert('과목 정보가 수정되었습니다.');
@@ -247,7 +209,6 @@ export default function SubjectInnerScreen({ route, navigation }: Props) {
       // 정보 새로고침
       await fetchSubject();
     } catch (e: any) {
-      console.error('❌ 과목 정보 업데이트 실패:', e);
       const errorMessage = e.response?.data?.message || e.message || '알 수 없는 오류가 발생했습니다.';
       
       if (Platform.OS === 'web') {

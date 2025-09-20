@@ -55,7 +55,6 @@ const SigninScreen = ({ navigation }: any) => {
         // 서버에서 "회원가입 완료" 메시지를 반환하므로 텍스트로 처리
         const result = await response.text();
         Alert.alert('성공', result || '회원가입이 완료되었습니다!');
-        console.log('회원가입 성공:', result);
         
         // 성공 시 입력 필드 초기화 및 로그인 화면으로 이동
         setEmail('');
@@ -71,12 +70,10 @@ const SigninScreen = ({ navigation }: any) => {
         // 서버 오류 처리
         const errorText = await response.text();
         Alert.alert('오류', errorText || '회원가입 중 오류가 발생했습니다.');
-        console.error('회원가입 실패:', response.status, errorText);
       }
     } catch (error) {
       // 네트워크 오류 처리
       Alert.alert('오류', '네트워크 연결을 확인해주세요.');
-      console.error('네트워크 오류:', error);
     } finally {
       setIsLoading(false);
     }

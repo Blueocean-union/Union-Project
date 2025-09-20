@@ -35,7 +35,7 @@ export default function SubjectCreateModal({ visible, onClose, onSuccess }: Prop
       onClose();
       onSuccess(); // 새로고침
     } catch (e) {
-      console.error('❌ 과목 생성 실패:', e);
+      // 과목 생성 실패 (콘솔 로그 제거)
     } finally {
       setLoading(false);
     }

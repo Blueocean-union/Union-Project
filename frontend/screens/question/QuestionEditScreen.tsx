@@ -39,7 +39,6 @@ export default function QuestionEditScreen({ route, navigation }: Props) {
         { text: '확인', onPress: () => navigation.goBack() }
       ]);
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '수정에 실패했습니다.');
     } finally {
       setIsSubmitting(false);

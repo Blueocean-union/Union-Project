@@ -46,11 +46,8 @@ const getUserInfo = async (token: string): Promise<User | null> => {
         'Content-Type': 'application/json'
       }
     });
-    console.log('API 응답 전체:', response);
-    console.log('API 응답 데이터:', response.data);
     return response.data;
   } catch (error) {
-    console.error('사용자 정보 조회 실패:', error);
     return null;
   }
 };
@@ -79,7 +76,6 @@ const getSubjects = async (): Promise<Subject[]> => {
       progress: progressData[index % progressData.length] || 0
     }));
   } catch (error) {
-    console.error('과목 목록 조회 실패:', error);
     return [];
   }
 };
@@ -92,7 +88,6 @@ const getTodaySchedules = async (): Promise<Schedule[]> => {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   } catch (error) {
-    console.error('오늘의 일정 조회 실패:', error);
     return [];
   }
 };
@@ -191,17 +186,12 @@ const MainScreen = () => {
     setUserLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      console.log('저장된 토큰:', token);
       
       if (token) {
         const userData = await getUserInfo(token);
-        console.log('사용자 정보 응답:', userData);
         setUser(userData);
-      } else {
-        console.log('토큰이 없습니다.');
       }
     } catch (error) {
-      console.error('사용자 정보 로드 실패:', error);
     } finally {
       setUserLoading(false);
     }

@@ -28,7 +28,6 @@ export default function QuestionListScreen({ route, navigation }: Props) {
       const data = await listPosts(category.id);
       setPosts(data);
     } catch (e) {
-      console.error('질문 목록 로드 실패:', e);
       setPosts([]);
     } finally {
       setLoading(false);

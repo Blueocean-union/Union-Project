@@ -84,7 +84,6 @@ export default function CalendarAppScreen({ navigation }: CalendarAppScreenProps
 
       setTodaySchedules(schedulesWithColors);
     } catch (err) {
-      console.error('오늘의 일정 불러오기 실패:', err);
       setTodaySchedules([]);
     } finally {
       setIsLoadingToday(false);
@@ -127,7 +126,6 @@ export default function CalendarAppScreen({ navigation }: CalendarAppScreenProps
       });
       setSchedules(grouped);
     } catch (err) {
-      console.error('월간 일정 불러오기 실패:', err);
       setSchedules({});
     } finally {
       setIsLoadingMonth(false);

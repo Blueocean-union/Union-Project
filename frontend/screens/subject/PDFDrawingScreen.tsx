@@ -59,11 +59,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
   const { file, fileUri, subjectColor } = route.params;
   const navigation = useNavigation<NavigationProp>();
   
-  // 디버깅 로그 추가 (무한 렌더링 방지를 위해 제거)
-  // console.log('🔍 PDFDrawingScreen 렌더링 시작');
-  // console.log('📁 파일 정보:', file);
-  // console.log('🔗 파일 URI:', fileUri);
-  // console.log('🎨 주제 색상:', subjectColor);
+  // 디버깅 로그 제거됨
   
   // PDF 관련 상태
   const [totalPages, setTotalPages] = useState(0);
@@ -95,7 +91,6 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     try {
       // annotation API는 별도의 토큰 처리
       const token = await AsyncStorage.getItem('accessToken');
-      console.log('📝 Annotation API 토큰 상태:', token ? '존재함' : '없음');
       
       const response = await fetch(`http://52.78.209.115:8080/api/annotations/${file.id}`, {
         method: 'GET',
@@ -412,7 +407,7 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
             onPress={() => handleToolChange('eraser')}
           >
-            <Ionicons name="brush" size={20} color="white" />
+            <Ionicons name="remove-circle-outline" size={20} color="white" />
           </TouchableOpacity>
           
           <TouchableOpacity

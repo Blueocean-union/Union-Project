@@ -83,7 +83,6 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
       // 폴링으로 전사 결과 확인
       pollTranscriptionResult(rid);
     } catch (error) {
-      console.error('전사 요청 실패:', error);
       Alert.alert('오류', '음성 전사 요청에 실패했습니다.');
       setIsTranscribing(false);
     }
@@ -116,7 +115,6 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
           Alert.alert('시간 초과', '음성 전사 시간이 초과되었습니다.');
         }
       } catch (error) {
-        console.error('전사 결과 확인 실패:', error);
         setIsTranscribing(false);
         Alert.alert('오류', '전사 결과를 확인할 수 없습니다.');
       }
@@ -153,7 +151,6 @@ export default function AudioPlayerScreen({ route, navigation }: Props) {
       setTranscriptionPdf(pdfContent);
       setShowTranscription(true);
     } catch (error) {
-      console.error('PDF 변환 실패:', error);
       Alert.alert('오류', 'PDF 변환에 실패했습니다.');
     }
   };

@@ -57,7 +57,6 @@ export default function SubjectFileStorage({
   // 프록시 다운로드 함수 (axios + arraybuffer)
   const proxyDownloadToCache = async (fileId: number, localPath: string, contentType: string = 'application/pdf') => {
     try {
-      console.log('🔄 프록시 다운로드 시작:', fileId, localPath);
       
       // 1) 프록시에서 바이너리 수신
       const res = await api.get(`/api/files/${fileId}/download`, {
@@ -67,8 +66,6 @@ export default function SubjectFileStorage({
         },
       });
 
-      console.log('📡 프록시 응답 상태:', res.status);
-      console.log('📊 응답 데이터 크기:', res.data.byteLength);
 
       // 2) Base64로 변환 후 파일로 저장
       const base64 = Buffer.from(res.data).toString('base64');

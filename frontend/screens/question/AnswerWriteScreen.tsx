@@ -27,7 +27,6 @@ export default function AnswerWriteScreen({ route, navigation }: Props) {
       }
       navigation.goBack();
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '답변 처리 실패');
     }
   };

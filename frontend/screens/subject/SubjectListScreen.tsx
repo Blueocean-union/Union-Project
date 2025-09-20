@@ -67,7 +67,7 @@ export default function SubjectListScreen({ navigation }: Props) {
       });
       setSchedules(grouped);
     } catch (err) {
-      console.error('주간 일정 불러오기 실패:', err);
+      // 에러 처리 (콘솔 로그 제거)
     }
   };
 
@@ -81,9 +81,7 @@ export default function SubjectListScreen({ navigation }: Props) {
   const fetchSubjects = async () => {
     setLoading(true);
     try {
-      console.log('🔄 과목 목록 불러오기 시작...');
       const res = await getSubjects();
-      console.log('📡 API 응답:', res);
       
       // 응답 호환 처리
       const list =
@@ -94,19 +92,14 @@ export default function SubjectListScreen({ navigation }: Props) {
         res ??
         [];
       
-      console.log('📋 처리된 과목 목록:', list);
-      console.log('📊 과목 개수:', Array.isArray(list) ? list.length : '배열이 아님');
-      
       // 배열인지 확인 후 설정
       if (Array.isArray(list)) {
         setSubjects(list);
       } else {
-        console.warn('⚠️ API 응답이 배열이 아닙니다:', list);
         setSubjects([]);
       }
     } catch (e: any) {
-      console.error('❌ 과목 목록 불러오기 실패:', e);
-      console.error('❌ 에러 상세:', e.response?.data || e.message);
+      // 에러 처리 (콘솔 로그 제거)
     } finally {
       setLoading(false);
     }
@@ -115,7 +108,6 @@ export default function SubjectListScreen({ navigation }: Props) {
   // 파일 이름 수정 함수
   const renameFileHandler = async (fileId: number, currentName: string) => {
     try {
-      console.log('📝 파일 이름 수정 시작:', { fileId, currentName });
       
       // 새 파일명 입력 받기
       const newName = await new Promise<string>((resolve) => {
@@ -137,16 +129,11 @@ export default function SubjectListScreen({ navigation }: Props) {
       });
 
       if (newName === currentName || !newName.trim()) {
-        console.log('📝 파일명 변경 없음 또는 빈 이름');
         return;
       }
 
-      console.log('📝 새 파일명:', newName);
-
       // API 호출
       await renameFile(fileId, newName.trim());
-      
-      console.log('✅ 파일 이름 수정 성공');
       
       if (Platform.OS === 'web') {
         alert('파일 이름이 성공적으로 변경되었습니다.');
@@ -158,7 +145,6 @@ export default function SubjectListScreen({ navigation }: Props) {
       await fetchSubjects();
       
     } catch (error: any) {
-      console.error('❌ 파일 이름 수정 실패:', error);
       const errorMessage = error.response?.data?.message || error.message || '알 수 없는 오류가 발생했습니다.';
       
       if (Platform.OS === 'web') {
@@ -171,8 +157,6 @@ export default function SubjectListScreen({ navigation }: Props) {
 
   // ActionSheet를 사용한 과목 삭제 함수
   const showSubjectOptions = (subjectId: number, subjectName: string) => {
-    console.log('🔍 showSubjectOptions 함수 호출됨:', { subjectId, subjectName });
-    console.log('🌐 현재 플랫폼:', Platform.OS);
     
     if (Platform.OS === 'ios') {
       // iOS 네이티브에서만 ActionSheet 사용
@@ -193,17 +177,13 @@ export default function SubjectListScreen({ navigation }: Props) {
       );
     } else {
       // Android, 웹, 기타 플랫폼에서는 Alert 사용
-      console.log('📱 Alert 사용:', `${subjectName} 과목 관리`);
       
       // 웹에서 테스트를 위해 먼저 간단한 confirm 사용
       if (Platform.OS === 'web') {
-        console.log('🌐 웹 환경에서 confirm 사용');
         const action = window.confirm(`${subjectName} 과목 관리\n\n1. 이름 수정\n2. 삭제\n\n확인을 누르면 이름 수정, 취소를 누르면 삭제됩니다.`);
         if (action) {
-          console.log('📝 이름 수정 선택됨');
           renameFileHandler(subjectId, subjectName);
         } else {
-          console.log('🗑️ 삭제 선택됨');
           executeDelete(subjectId, subjectName);
         }
       } else {
@@ -214,12 +194,11 @@ export default function SubjectListScreen({ navigation }: Props) {
             { 
               text: '취소', 
               style: 'cancel',
-              onPress: () => console.log('❌ 취소 선택됨')
+              onPress: () => {}
             },
             { 
               text: '과목 이름 수정', 
               onPress: () => {
-                console.log('📝 이름 수정 선택됨');
                 renameFileHandler(subjectId, subjectName);
               }
             },
@@ -227,7 +206,6 @@ export default function SubjectListScreen({ navigation }: Props) {
               text: '과목 삭제하기', 
               style: 'destructive',
               onPress: () => {
-                console.log('🗑️ 삭제 선택됨');
                 deleteSubject(subjectId, subjectName);
               }
             },
@@ -240,14 +218,10 @@ export default function SubjectListScreen({ navigation }: Props) {
   // 실제 삭제 실행 함수 (API 호출만)
   const executeDelete = async (subjectId: number, subjectName: string) => {
     try {
-      console.log('🌐 API 호출:', `DELETE /api/subjects/${subjectId}`);
-      
       await deleteSubjectAPI(subjectId);
-      console.log('✅ 과목 삭제 성공');
       
       // 웹에서는 alert 대신 console.log 사용
       if (Platform.OS === 'web') {
-        console.log('🎉 삭제 완료:', subjectName);
         alert('과목이 성공적으로 삭제되었습니다.');
       } else {
         Alert.alert('삭제 완료', '과목이 성공적으로 삭제되었습니다.');
@@ -255,15 +229,10 @@ export default function SubjectListScreen({ navigation }: Props) {
       
       await fetchSubjects(); // 목록 새로고침
     } catch (e: any) {
-      console.error('❌ 과목 삭제 실패:', e);
-      console.error('❌ 에러 상세:', e.response?.data || e.message);
-      console.error('❌ 에러 상태:', e.response?.status);
-      
       const errorMessage = e.response?.data?.message || e.message || '알 수 없는 오류가 발생했습니다.';
       
       // 웹에서는 alert 대신 console.log 사용
       if (Platform.OS === 'web') {
-        console.error('❌ 삭제 실패:', errorMessage);
         alert(`과목 삭제에 실패했습니다.\n\n${errorMessage}`);
       } else {
         Alert.alert('오류', `과목 삭제에 실패했습니다.\n\n${errorMessage}`);
@@ -273,7 +242,6 @@ export default function SubjectListScreen({ navigation }: Props) {
 
   // 실제 삭제 실행 함수 (Alert 포함)
   const deleteSubject = async (subjectId: number, subjectName: string) => {
-    console.log('🗑️ 과목 삭제 시작:', subjectId, subjectName);
     
     // 최종 확인 다이얼로그
     Alert.alert(
@@ -294,14 +262,8 @@ export default function SubjectListScreen({ navigation }: Props) {
   const checkAuthToken = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      console.log('🔑 현재 토큰 상태:', token ? '토큰 있음' : '토큰 없음');
-      if (token) {
-        console.log('🔑 토큰 길이:', token.length);
-        console.log('🔑 토큰 시작:', token.substring(0, 20) + '...');
-      }
       return token;
     } catch (e) {
-      console.error('❌ 토큰 확인 실패:', e);
       return null;
     }
   };
@@ -390,7 +352,6 @@ export default function SubjectListScreen({ navigation }: Props) {
                 key={item.id} 
                 style={[styles.subjectCard, { borderLeftColor: isValidHex(item.color) ? item.color : '#2b3f85' }]}
                 onPress={() => {
-                  console.log('🔘 과목 카드 클릭됨:', item.id, item.name ?? item.title);
                   navigation.navigate('SubjectInner', {
                     subjectId: item.id,
                     subjectName: item.name ?? item.title,
@@ -413,7 +374,6 @@ export default function SubjectListScreen({ navigation }: Props) {
                     style={styles.moreButton}
                     onPress={(e) => {
                       e.stopPropagation(); // 카드 클릭 이벤트 방지
-                      console.log('🔘 ... 버튼 클릭됨:', item.id, item.name ?? item.title);
                       showSubjectOptions(item.id, item.name ?? item.title);
                     }}
                   >

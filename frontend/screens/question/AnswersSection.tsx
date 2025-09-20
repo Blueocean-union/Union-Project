@@ -36,7 +36,6 @@ export default function AnswersSection({ postId }: Props) {
       const data = await listAnswers(postId);
       setItems(data);
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '답변을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -65,7 +64,6 @@ export default function AnswersSection({ postId }: Props) {
       setIsWriting(false);
       await load();
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '등록에 실패했습니다.');
     }
   };
@@ -89,7 +87,6 @@ export default function AnswersSection({ postId }: Props) {
       cancelEdit();
       await load();
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '수정에 실패했습니다.');
     }
   };
@@ -105,7 +102,6 @@ export default function AnswersSection({ postId }: Props) {
             await deleteAnswer(id);
             await load();
           } catch (e) {
-            console.error(e);
             Alert.alert('오류', '삭제에 실패했습니다.');
           }
         },

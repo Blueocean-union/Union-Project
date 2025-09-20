@@ -26,7 +26,6 @@ export default function FolderFilesScreen({ route }: Props) {
       const data = await listFilesInFolder(folderId);
       setFiles(data);
     } catch (e) {
-      console.log(e);
       Alert.alert('오류', '파일 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -50,7 +49,6 @@ export default function FolderFilesScreen({ route }: Props) {
       await uploadFileMultipart(folderId, file);
       await load();
     } catch (e) {
-      console.log(e);
       Alert.alert('오류', '업로드에 실패했습니다.');
     }
   };
@@ -66,7 +64,6 @@ export default function FolderFilesScreen({ route }: Props) {
             await removeFile(id);
             await load();
           } catch (e) {
-            console.log(e);
             Alert.alert('오류', '삭제에 실패했습니다.');
           }
         },

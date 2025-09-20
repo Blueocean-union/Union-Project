@@ -58,7 +58,6 @@ export default function QuestionDetailScreen({ route, navigation }: Props) {
       setData(questionData);
       setAnswers(answersData);
     } catch (e) {
-      console.error('데이터 로드 실패:', e);
       Alert.alert('오류', '질문 내용을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -79,7 +78,6 @@ export default function QuestionDetailScreen({ route, navigation }: Props) {
               navigation.goBack();
             }
           } catch (e) {
-            console.error(e);
             Alert.alert('오류', '삭제에 실패했습니다.');
           }
         },
@@ -102,7 +100,6 @@ export default function QuestionDetailScreen({ route, navigation }: Props) {
       setShowCommentInput(false);
       await listAnswers(data.id).then(setAnswers);
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '댓글 등록에 실패했습니다.');
     } finally {
       setSubmittingComment(false);
@@ -125,7 +122,6 @@ export default function QuestionDetailScreen({ route, navigation }: Props) {
         await listAnswers(data.id).then(setAnswers);
       }
     } catch (e) {
-      console.error(e);
       Alert.alert('오류', '댓글 수정에 실패했습니다.');
     }
   };
@@ -143,7 +139,6 @@ export default function QuestionDetailScreen({ route, navigation }: Props) {
               await listAnswers(data.id).then(setAnswers);
             }
           } catch (e) {
-            console.error(e);
             Alert.alert('오류', '댓글 삭제에 실패했습니다.');
           }
         },
