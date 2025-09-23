@@ -1,26 +1,35 @@
-// 개별 선택지
+// types/quiz.ts
 export type Choice = {
   id: string;
   text: string;
 };
 
-// 문제
 export type Question = {
   id: string;
   text: string;
   choices: Choice[];
-  answer: number;          // 정답 인덱스
-  explanation?: string;    // 해설 (옵션)
+  answer: number;          // 정답 인덱스 (0-3)
+  explanation?: string;    // 기본 해설
+  difficulty: number;      // 난이도 (1-5, 별표 개수)
+  wrongExplanation?: string; // 틀렸을 때 추가 해설
 };
 
-// 퀴즈
 export type Quiz = {
   id: string;
   title: string;
   questions: Question[];
+  pdfFileName?: string;    // PDF 파일명
 };
 
-// API 응답 최상위
-export type RawQuizResponse = {
+export type QuizResponse = {
   items: Quiz[];
+};
+
+// 사용자 답안 상태
+export type AnswerStatus = 'correct' | 'incorrect' | 'unanswered';
+
+export type UserAnswer = {
+  questionId: string;
+  selectedChoice: number;
+  status: AnswerStatus;
 };
