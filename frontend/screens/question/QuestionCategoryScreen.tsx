@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -63,7 +64,6 @@ export default function QuestionCategoryScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 카테고리 로딩 시뮬레이션
     const timer = setTimeout(() => {
       setLoading(false);
     }, 500);
@@ -75,7 +75,12 @@ export default function QuestionCategoryScreen({ navigation }: Props) {
   };
 
   const handleCreateQuestion = () => {
-    navigation.navigate('QuestionCreate', {});
+    // 카테고리 선택 안내
+    Alert.alert(
+      '카테고리 선택',
+      '질문을 작성할 카테고리를 먼저 선택해주세요.',
+      [{ text: '확인' }]
+    );
   };
 
   const renderCategoryCard = ({ item }: { item: Category }) => (
@@ -119,8 +124,14 @@ export default function QuestionCategoryScreen({ navigation }: Props) {
           onPress={handleCreateQuestion}
         >
           <Ionicons name="add-circle" size={28} color="#4A90E2" />
-          <Text style={styles.createButtonText}>질문 작성</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.notice}>
+        <Ionicons name="information-circle" size={20} color="#007AFF" />
+        <Text style={styles.noticeText}>
+          카테고리를 선택한 후 질문을 작성할 수 있습니다
+        </Text>
       </View>
 
       <FlatList
@@ -173,17 +184,23 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   createButton: {
+    padding: 4,
+  },
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: '#E8F4FF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
     borderRadius: 8,
+    gap: 8,
   },
-  createButtonText: {
-    marginLeft: 6,
-    color: '#4A90E2',
-    fontWeight: '600',
-    fontSize: 14,
+  noticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#007AFF',
+    lineHeight: 18,
   },
   listContainer: {
     paddingHorizontal: 12,
@@ -240,4 +257,3 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
 });
-

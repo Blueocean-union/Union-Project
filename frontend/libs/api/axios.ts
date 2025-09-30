@@ -1,13 +1,12 @@
-// libs/api/axios.ts
 import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-  baseURL: 'http://52.78.209.115:8080', // 서버 주소
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 12000,
+  baseURL: 'http://52.78.209.115:8080',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 12000,
 });
 
 // 요청 인터셉터: accessToken 자동 주입
@@ -16,7 +15,6 @@ api.interceptors.request.use(
     const token = await AsyncStorage.getItem('accessToken');
 
     if (token) {
-      // headers가 undefined일 수 있으므로 보장 처리
       config.headers = {
         ...(config.headers || {}),
         Authorization: `Bearer ${token}`,
@@ -38,7 +36,12 @@ api.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    if (error.response?.status === 401) {
+      // 토큰 만료 시 자동 로그아웃
+      await AsyncStorage.removeItem('accessToken');
+      await AsyncStorage.removeItem('refreshToken');
+    }
     return Promise.reject(error);
   }
 );

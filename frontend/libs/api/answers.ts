@@ -1,4 +1,4 @@
-import client from './client';
+import api from './axios';  
 
 export type Answer = {
   id: number;
@@ -20,23 +20,23 @@ export type AnswerUpdate = {
 
 // 답변 목록 조회
 export const listAnswers = async (postId: number): Promise<Answer[]> => {
-  const response = await client.get(`/api/comments?postId=${postId}`);
+  const response = await api.get(`/api/comments?postId=${postId}`);
   return response.data;
 };
 
 // 답변 생성
 export const createAnswer = async (postId: number, content: string): Promise<Answer> => {
-  const response = await client.post(`/api/comments?postId=${postId}`, { content });
+  const response = await api.post(`/api/comments?postId=${postId}`, { content });
   return response.data;
 };
 
 // 답변 수정
 export const updateAnswer = async (answerId: number, content: string): Promise<Answer> => {
-  const response = await client.put(`/api/comments/${answerId}`, { content });
+  const response = await api.put(`/api/comments/${answerId}`, { content });
   return response.data;
 };
 
 // 답변 삭제
 export const deleteAnswer = async (answerId: number): Promise<void> => {
-  await client.delete(`/api/comments/${answerId}`);
+  await api.delete(`/api/comments/${answerId}`);
 };

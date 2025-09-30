@@ -36,16 +36,36 @@ export default function QuestionCreateScreen({ route, navigation }: Props) {
 
     try {
       setIsSubmitting(true);
-      await createPost({
+      
+      console.log('=== 질문 등록 시작 ===');
+      console.log('전송 데이터:', {
         title,
         content,
         categoryId: category.id,
       });
+
+      const response = await createPost({
+        title,
+        content,
+        categoryId: category.id,
+      });
+
+      console.log('=== 등록 성공 ===');
+      console.log('응답:', response);
+
       Alert.alert('등록 완료', '질문이 성공적으로 등록되었습니다.', [
         { text: '확인', onPress: () => navigation.goBack() }
       ]);
-    } catch (e) {
-      Alert.alert('오류', '질문 등록에 실패했습니다.');
+    } catch (e: any) {
+      console.error('=== 등록 실패 ===');
+      console.error('에러 전체:', e);
+      console.error('에러 메시지:', e.message);
+      console.error('에러 응답:', e.response?.data);
+      console.error('에러 상태:', e.response?.status);
+      console.error('에러 헤더:', e.response?.headers);
+      
+      const errorMsg = e.response?.data?.message || e.message || '알 수 없는 오류';
+      Alert.alert('오류', `질문 등록 실패\n\n${errorMsg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -85,7 +105,9 @@ export default function QuestionCreateScreen({ route, navigation }: Props) {
             onPress={handleSubmit}
             disabled={isSubmitting || !title.trim() || !content.trim()}
           >
-            <Text style={styles.submitButtonText}>등록</Text>
+            <Text style={styles.submitButtonText}>
+              {isSubmitting ? '등록 중...' : '등록'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -109,6 +131,7 @@ export default function QuestionCreateScreen({ route, navigation }: Props) {
                 placeholder="질문의 제목을 입력하세요"
                 placeholderTextColor="#C7C7CC"
                 maxLength={100}
+                editable={!isSubmitting}
               />
               <Text style={styles.characterCount}>{title.length}/100</Text>
             </View>
@@ -124,6 +147,7 @@ export default function QuestionCreateScreen({ route, navigation }: Props) {
                 multiline
                 textAlignVertical="top"
                 maxLength={1000}
+                editable={!isSubmitting}
               />
               <Text style={styles.characterCount}>{content.length}/1000</Text>
             </View>
@@ -241,4 +265,3 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-
