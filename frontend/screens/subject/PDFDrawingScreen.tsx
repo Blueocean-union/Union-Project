@@ -310,24 +310,79 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
     console.log('✅ 그리기 완료 - 총 경로 수:', updatedPaths.length);
   }, [isDrawing, currentPath, currentColor, currentWidth, currentTool, drawingPaths, saveAnnotations]);
 
-  // PanResponder 설정
+  // 제스처 감지를 위한 상태
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [touchStartTime, setTouchStartTime] = useState(0);
+  const [touchStartPosition, setTouchStartPosition] = useState({ x: 0, y: 0 });
+  const [hasMoved, setHasMoved] = useState(false);
+  
+
+  // PanResponder 설정 - 필기 모드에서만 활성화
   const panResponder = useCallback(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: (evt) => {
+      const touches = evt.nativeEvent.touches;
+      
+      // 필기 모드가 아닌 경우 PDF 기본 기능 사용
+      if (!isDrawingMode) {
+        return false;
+      }
+      
+      // 필기 모드에서만 터치 이벤트 처리
+      if (touches.length === 1) {
+        const { locationX, locationY } = evt.nativeEvent;
+        setTouchStartTime(Date.now());
+        setTouchStartPosition({ x: locationX, y: locationY });
+        setHasMoved(false);
+        return true;
+      }
+      
+      return false;
+    },
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      // 필기 모드가 아닌 경우 PDF 기본 기능 사용
+      if (!isDrawingMode) {
+        return false;
+      }
+      
+      const touches = evt.nativeEvent.touches;
+      
+      // 필기 모드에서만 움직임 처리
+      if (touches.length === 1) {
+        const { locationX, locationY } = evt.nativeEvent;
+        const deltaX = Math.abs(locationX - touchStartPosition.x);
+        const deltaY = Math.abs(locationY - touchStartPosition.y);
+        
+        // 움직임이 감지되면 hasMoved 업데이트
+        if (deltaX > 5 || deltaY > 5) {
+          setHasMoved(true);
+        }
+        
+        return true;
+      }
+      
+      return false;
+    },
     onPanResponderGrant: (evt) => {
-      const { locationX, locationY } = evt.nativeEvent;
-      console.log('🖊️ 그리기 시작:', locationX, locationY);
-      startDrawing(locationX, locationY);
+      if (isDrawingMode) {
+        const { locationX, locationY } = evt.nativeEvent;
+        console.log('🖊️ 그리기 시작:', locationX, locationY);
+        startDrawing(locationX, locationY);
+      }
     },
     onPanResponderMove: (evt) => {
-      const { locationX, locationY } = evt.nativeEvent;
-      continueDrawing(locationX, locationY);
+      if (isDrawingMode) {
+        const { locationX, locationY } = evt.nativeEvent;
+        continueDrawing(locationX, locationY);
+      }
     },
     onPanResponderRelease: () => {
-      console.log('🖊️ 그리기 종료');
-      endDrawing();
+      if (isDrawingMode) {
+        console.log('🖊️ 그리기 종료');
+        endDrawing();
+      }
     },
-  }), [startDrawing, continueDrawing, endDrawing]);
+  }), [isDrawingMode, startDrawing, continueDrawing, endDrawing, touchStartPosition]);
+
 
   // useEffect로 필기 데이터 로드
   useEffect(() => {
@@ -379,42 +434,56 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
       {/* 색상 팔레트 + 툴바 (한 줄) */}
       <View style={[styles.toolbarContainer, { backgroundColor: subjectColor }]}>
         <View style={styles.colorRow}>
-          {['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
+          {isDrawingMode && ['#000000', '#ffffff', '#ff0000', '#0000ff', '#00ff00', '#ffff00', '#ff00ff', '#00ffff'].map((color) => (
             <TouchableOpacity
               key={color}
               style={[styles.colorButton, { backgroundColor: color }, currentColor === color && styles.selectedColor]}
               onPress={() => handleColorChange(color)}
             />
           ))}
+          {!isDrawingMode && (
+            <Text style={styles.modeIndicator}>드래그 모드 - PDF 기본 제스처 사용 가능</Text>
+          )}
         </View>
         
         <View style={styles.toolGroup}>
-          <TouchableOpacity
-            style={[styles.toolButton, currentTool === 'pen' && styles.activeTool]}
-            onPress={() => handleToolChange('pen')}
-          >
-            <Ionicons name="create" size={20} color="white" />
-          </TouchableOpacity>
+          {isDrawingMode && (
+            <>
+              <TouchableOpacity
+                style={[styles.toolButton, currentTool === 'pen' && styles.activeTool]}
+                onPress={() => handleToolChange('pen')}
+              >
+                <Ionicons name="create" size={20} color="white" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.toolButton, currentTool === 'highlighter' && styles.activeTool]}
+                onPress={() => handleToolChange('highlighter')}
+              >
+                <Ionicons name="brush" size={20} color="white" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
+                onPress={() => handleToolChange('eraser')}
+              >
+                <Ionicons name="remove-circle-outline" size={20} color="white" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.toolButton]}
+                onPress={handleClearAnnotations}
+              >
+                <Ionicons name="trash-outline" size={20} color="white" />
+              </TouchableOpacity>
+            </>
+          )}
           
           <TouchableOpacity
-            style={[styles.toolButton, currentTool === 'highlighter' && styles.activeTool]}
-            onPress={() => handleToolChange('highlighter')}
+            style={[styles.toolButton, isDrawingMode && styles.activeTool]}
+            onPress={() => setIsDrawingMode(!isDrawingMode)}
           >
-            <Ionicons name="brush" size={20} color="white" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.toolButton, currentTool === 'eraser' && styles.activeTool]}
-            onPress={() => handleToolChange('eraser')}
-          >
-            <Ionicons name="remove-circle-outline" size={20} color="white" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.toolButton]}
-            onPress={handleClearAnnotations}
-          >
-            <Ionicons name="trash-outline" size={20} color="white" />
+            <Ionicons name="swap-horizontal" size={20} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -458,57 +527,64 @@ export default function PDFDrawingScreen({ route }: PDFDrawingScreenProps) {
             )}
             
             <Pdf
-              ref={pdfRef}
-              source={{ 
-                uri: fileUri,
-                cache: false,
-                cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
-              }}
-              style={[StyleSheet.absoluteFill, { backgroundColor: 'white' }]}
-              onLoadComplete={(numberOfPages, width, height) => {
-                console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
-                console.log('📄 PDF 크기:', width, 'x', height);
-                setTotalPages(numberOfPages);
-                setLoading(false);
-                setError(null);
-                setPdfLoaded(true);
-              }}
-              onError={(error: any) => {
-                console.error('❌ PDF 로드 오류:', error);
-                console.error('❌ 오류 상세:', error);
-                console.error('❌ 파일 URI:', fileUri);
-                setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
-                setLoading(false);
-                setPdfLoaded(false);
-              }}
-              onLoadProgress={(percent) => {
-                console.log('📊 PDF 로딩 진행률:', percent + '%');
-                if (percent < 100) {
-                  setLoading(true);
-                }
-              }}
-              onPageChanged={(page, numberOfPages) => {
-                console.log('📄 페이지 변경:', page, '/', numberOfPages);
-              }}
-              enablePaging={false}
-              enableRTL={false}
-              enableAntialiasing={true}
-              enableAnnotationRendering={true}
-              enableDoubleTapZoom={true}
-              password=""
-              spacing={0}
-              scale={scale}
-              minScale={0.5}
-              maxScale={3}
-              horizontal={false}
-              onScaleChanged={(scale) => {
-                console.log('📏 스케일 변경:', scale);
-                setScale(scale);
-              }}
-            />
+                ref={pdfRef}
+                source={{ 
+                  uri: fileUri,
+                  cache: false,
+                  cacheFileName: `pdf_${file.id}_${Date.now()}.pdf`
+                }}
+                style={[StyleSheet.absoluteFill, { backgroundColor: 'white' }]}
+                onLoadComplete={(numberOfPages, width, height) => {
+                  console.log('✅ PDF 로드 완료:', numberOfPages, '페이지');
+                  console.log('📄 PDF 크기:', width, 'x', height);
+                  setTotalPages(numberOfPages);
+                  setLoading(false);
+                  setError(null);
+                  setPdfLoaded(true);
+                }}
+                onError={(error: any) => {
+                  console.error('❌ PDF 로드 오류:', error);
+                  console.error('❌ 오류 상세:', error);
+                  console.error('❌ 파일 URI:', fileUri);
+                  setError(error.message || 'PDF 로드 중 오류가 발생했습니다.');
+                  setLoading(false);
+                  setPdfLoaded(false);
+                }}
+                onLoadProgress={(percent) => {
+                  console.log('📊 PDF 로딩 진행률:', percent + '%');
+                  if (percent < 100) {
+                    setLoading(true);
+                  }
+                }}
+                onPageChanged={(page, numberOfPages) => {
+                  // 페이지 변경 로그 제거됨
+                }}
+                enablePaging={false}
+                enableRTL={false}
+                enableAntialiasing={true}
+                enableAnnotationRendering={true}
+                enableDoubleTapZoom={true}
+                password=""
+                spacing={0}
+                scale={scale}
+                minScale={0.5}
+                maxScale={3}
+                horizontal={false}
+                onScaleChanged={(scale) => {
+                  console.log('📏 스케일 변경:', scale);
+                  setScale(scale);
+                }}
+              />
+            
             
             {/* SVG 필기 오버레이 - PDF 위에 절대 위치 */}
-            <View style={StyleSheet.absoluteFill} {...panResponder().panHandlers}>
+            <View 
+              style={[
+                StyleSheet.absoluteFill, 
+                { pointerEvents: isDrawingMode ? 'auto' : 'none' }
+              ]} 
+              {...(isDrawingMode ? panResponder().panHandlers : {})}
+            >
               <Svg
                 ref={svgRef}
                 width={canvasSize.width || screenWidth}
@@ -696,5 +772,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modeIndicator: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
