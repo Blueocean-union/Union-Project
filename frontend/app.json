@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.blueoceanunion.unimateapp"
+      "package": "com.blueoceanunion.unimateapp3"
     },
     "web": {
       "favicon": "./assets/favicon.png"
