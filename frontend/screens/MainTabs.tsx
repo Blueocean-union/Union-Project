@@ -10,12 +10,12 @@ import QuestionStack from './question/QuestionStack';
 // import QuizRoomScreen from './quiz/QuizRoomScreen';
 // import QuizSelectScreen from './quiz/QuizSelectScreen';
 import SearchScreen from './search/SearchScreen';
-import SubjectDetailScreen from './subject/SubjectDetailScreen';
-import SubjectListScreen from './subject/SubjectListScreen';
-import SubjectInnerScreen from './subject/SubjectInnerScreen';
-import PDFDrawingScreen from './subject/PDFDrawingScreen';
-import AudioPlayerScreen from './subject/AudioPlayerScreen';
-import FileSummuryScreen from './subject/FileSummuryScreen';
+// import SubjectDetailScreen from './subject/SubjectDetailScreen';
+// import SubjectListScreen from './subject/SubjectListScreen';
+// import SubjectInnerScreen from './subject/SubjectInnerScreen';
+// import PDFDrawingScreen from './subject/PDFDrawingScreen';
+// import AudioPlayerScreen from './subject/AudioPlayerScreen';
+// import FileSummuryScreen from './subject/FileSummuryScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -35,18 +35,18 @@ export type SubjectStackParamList = {
   FileSummury: { file: any; subjectColor: string };
 };
 
-function SubjectStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
-      <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
-      <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
-      <Stack.Screen name="PDFDrawing" component={PDFDrawingScreen as any} />
-      <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
-      <Stack.Screen name="FileSummury" component={FileSummuryScreen as any} />
-    </Stack.Navigator>
-  );
-}
+// function SubjectStack() {
+//   return (
+//     <Stack.Navigator screenOptions={{ headerShown: false }}>
+//       <Stack.Screen name="SubjectList" component={SubjectListScreen as any} />
+//       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen as any} />
+//       <Stack.Screen name="SubjectInner" component={SubjectInnerScreen as any} />
+//       <Stack.Screen name="PDFDrawing" component={PDFDrawingScreen as any} />
+//       <Stack.Screen name="AudioPlayerScreen" component={AudioPlayerScreen as any} />
+//       <Stack.Screen name="FileSummury" component={FileSummuryScreen as any} />
+//     </Stack.Navigator>
+//   );
+// }
 
 
 
@@ -153,7 +153,7 @@ export default function MainTabs() {
       screenOptions={{ headerShown: false }}
       tabBar={(props: any) => <MyTabBar {...props} />}
     >
-      <Tab.Screen name="과목" component={SubjectStack} />
+      {/* <Tab.Screen name="과목" component={SubjectStack} /> */}
       <Tab.Screen name="일정" component={CalendarStack} />
       <Tab.Screen name="홈" component={HomeStack} />
       <Tab.Screen name="질문방" component={QuestionStack} />
