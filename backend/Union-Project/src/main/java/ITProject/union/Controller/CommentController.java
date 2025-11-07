@@ -40,7 +40,8 @@ public class CommentController {
     @PutMapping("/{id}")
     public ResponseEntity<Void> updateComment(@PathVariable Long id,
                                               @RequestBody CommentRequestDto request,
-                                              @AuthenticationPrincipal CustomUserDetails user) {
+                                              @AuthenticationPrgit check-ignore -v package-lock.json
+                                                          incipal CustomUserDetails user) {
         commentService.updateComment(user.getId(), id, request);
         return ResponseEntity.ok().build();
     }
