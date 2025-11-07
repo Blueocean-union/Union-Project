@@ -6,9 +6,9 @@ import CalendarAppScreen from './schedule/CalendarAppScreen';
 import MainScreen from './home/MainScreen';
 import LogoutScreen from './auth/LogoutScreen';
 import QuestionStack from './question/QuestionStack';
-import QuizResultScreen from './quiz/QuizResultScreen';
-import QuizRoomScreen from './quiz/QuizRoomScreen';
-import QuizSelectScreen from './quiz/QuizSelectScreen';
+// import QuizResultScreen from './quiz/QuizResultScreen';
+// import QuizRoomScreen from './quiz/QuizRoomScreen';
+// import QuizSelectScreen from './quiz/QuizSelectScreen';
 import SearchScreen from './search/SearchScreen';
 import SubjectDetailScreen from './subject/SubjectDetailScreen';
 import SubjectListScreen from './subject/SubjectListScreen';
@@ -50,15 +50,15 @@ function SubjectStack() {
 
 
 
-function QuizStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="QuizSelect" component={QuizSelectScreen} />
-      <Stack.Screen name="QuizRoom" component={QuizRoomScreen} />
-      <Stack.Screen name="QuizResult" component={QuizResultScreen} />
-    </Stack.Navigator>
-  );
-}
+// function QuizStack() {
+//   return (
+//     <Stack.Navigator screenOptions={{ headerShown: false }}>
+//       <Stack.Screen name="QuizSelect" component={QuizSelectScreen} />
+//       <Stack.Screen name="QuizRoom" component={QuizRoomScreen} />
+//       <Stack.Screen name="QuizResult" component={QuizResultScreen} />
+//     </Stack.Navigator>
+//   );
+// }
 
 function CalendarStack() {
   return (
@@ -96,7 +96,7 @@ const TAB_ICONS: Record<string, string> = {
   '홈': 'home',
   '과목': 'book-outline',
   '질문방': 'help-circle-outline',
-  '퀴즈': 'help-buoy-outline',
+  // '퀴즈': 'help-buoy-outline',
   '일정': 'calendar',
   '검색': 'search',
 };
@@ -157,7 +157,7 @@ export default function MainTabs() {
       <Tab.Screen name="일정" component={CalendarStack} />
       <Tab.Screen name="홈" component={HomeStack} />
       <Tab.Screen name="질문방" component={QuestionStack} />
-      <Tab.Screen name="퀴즈" component={QuizStack} />
+      {/* <Tab.Screen name="퀴즈" component={QuizStack} /> */}
       <Tab.Screen name="검색" component={SearchStack} />
     </Tab.Navigator>
   );
